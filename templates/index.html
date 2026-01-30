@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - SCA Guide{% endblock %}
+
+{% block content %}
+<div class="upload-page">
+    <div class="upload-container">
+        <h2>Upload Baseline SCA File</h2>
+        <p class="description">Upload a Wazuh SCA YAML file to create a custom policy based on loosening.</p>
+
+        <form id="upload-form" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file-input" class="form-label">SCA YAML File</label>
+                <div class="file-upload-area" id="drop-zone">
+                    <input type="file" id="file-input" name="file" accept=".yml,.yaml" required hidden>
+                    <div class="upload-prompt">
+                        <svg class="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p class="upload-text">Drop file here or <span class="upload-link">browse</span></p>
+                        <p class="upload-hint">Supports .yml and .yaml files (max 16MB)</p>
+                    </div>
+                    <div class="file-selected" id="file-selected" style="display: none;">
+                        <p class="selected-file-name" id="selected-file-name"></p>
+                        <button type="button" class="btn-remove" id="remove-file-btn">&times;</button>
+                    </div>
+                </div>
+                <div class="validation-feedback" id="file-validation"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="custom-name" class="form-label">Custom Policy Name <span class="required">*</span></label>
+                <input type="text" id="custom-name" name="custom_name" 
+                       class="form-input" placeholder="Enter policy name (1-100 characters)" 
+                       minlength="1" maxlength="100" required>
+                <div class="validation-feedback" id="name-validation"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="custom-description" class="form-label">Custom Policy Description <span class="required">*</span></label>
+                <textarea id="custom-description" name="custom_description" 
+                          class="form-textarea" placeholder="Enter policy description (1-500 characters)" 
+                          minlength="1" maxlength="500" rows="4" required></textarea>
+                <div class="char-count"><span id="desc-char-count">0</span>/500</div>
+                <div class="validation-feedback" id="desc-validation"></div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+                    Start Review
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const fileSelected = document.getElementById('file-selected');
+    const selectedFileName = document.getElementById('selected-file-name');
+    const removeFileBtn = document.getElementById('remove-file-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    const customName = document.getElementById('custom-name');
+    const customDesc = document.getElementById('custom-description');
+    const descCharCount = document.getElementById('desc-char-count');
+    
+    let selectedFile = null;
+
+    // Character counter
+    customDesc.addEventListener('input', function() {
+        descCharCount.textContent = this.value.length;
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+
+    // Drag and drop
+    dropZone.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('drag-over');
+        
+        if (e.dataTransfer.files.length > 0) {
+            handleFileSelect(e.dataTransfer.files[0]);
+        }
+    });
+
+    // Remove file
+    removeFileBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        clearFileSelection();
+    });
+
+    function handleFileSelect(file) {
+        selectedFile = file;
+        selectedFileName.textContent = file.name;
+        dropZone.querySelector('.upload-prompt').style.display = 'none';
+        fileSelected.style.display = 'flex';
+        validateForm();
+    }
+
+    function clearFileSelection() {
+        selectedFile = null;
+        fileInput.value = '';
+        dropZone.querySelector('.upload-prompt').style.display = 'block';
+        fileSelected.style.display = 'none';
+        document.getElementById('file-validation').textContent = '';
+        validateForm();
+    }
+
+    function validateForm() {
+        const hasFile = selectedFile !== null;
+        const hasName = customName.value.trim().length >= 1 && customName.value.trim().length <= 100;
+        const hasDesc = customDesc.value.trim().length >= 1 && customDesc.value.trim().length <= 500;
+        
+        submitBtn.disabled = !(hasFile && hasName && hasDesc);
+    }
+
+    // Form validation on input
+    customName.addEventListener('input', validateForm);
+    customDesc.addEventListener('input', validateForm);
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!selectedFile) {
+            showToast('Please select a file', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('custom_name', customName.value.trim());
+        formData.append('custom_description', customDesc.value.trim());
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading...';
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('File uploaded successfully', 'success');
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 500);
+            } else {
+                showToast(data.error || 'Upload failed', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Start Review';
+            }
+        })
+        .catch(error => {
+            showToast('Upload failed: ' + error.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Start Review';
+        });
+    });
+});
+</script>
+{% endblock %}
