@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Review - SCA Guide{% endblock %}
+
+{% block content %}
+<div class="review-page">
+    <div class="review-header">
+        <h2>{{ policy_name }}</h2>
+        <div class="review-actions">
+            <button class="btn btn-secondary" id="save-draft-btn">Save Draft</button>
+            <button class="btn btn-primary" id="review-decisions-btn">Review Decisions</button>
+        </div>
+    </div>
+
+    <div class="progress-indicator">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+        <p class="progress-text">
+            <span id="reviewed-count">0</span> of <span id="total-count">{{ checks|length }}</span> checks reviewed
+            (<span id="excluded-count">0</span> excluded)
+        </p>
+    </div>
+
+    <div class="review-content">
+        <aside class="filter-sidebar">
+            <h3>Filters</h3>
+            
+            <div class="filter-group">
+                <label>Status</label>
+                <div class="filter-options">
+                    <label class="filter-option">
+                        <input type="checkbox" name="status" value="included" checked>
+                        <span>Included</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" name="status" value="excluded" checked>
+                        <span>Excluded</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" name="status" value="unreviewed" checked>
+                        <span>Unreviewed</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <label>Impact Level</label>
+                <div class="filter-options">
+                    <label class="filter-option">
+                        <input type="checkbox" name="impact" value="high" checked>
+                        <span>High</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" name="impact" value="medium" checked>
+                        <span>Medium</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" name="impact" value="low" checked>
+                        <span>Low</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <label>Search</label>
+                <input type="text" class="filter-search" id="search-input" placeholder="Search checks...">
+            </div>
+
+            <button class="btn btn-outline" id="clear-filters-btn">Clear Filters</button>
+        </aside>
+
+        <div class="cards-area">
+            <div class="cards-grid" id="cards-grid">
+                {% for check in checks %}
+                <div class="check-card" data-check-id="{{ check.id }}" data-impact="{{ check.impact|lower }}">
+                    <div class="card-header">
+                        <span class="check-id">Check #{{ check.id }}</span>
+                        {% if check.impact %}
+                        <span class="impact-badge impact-{{ check.impact|lower }}">{{ check.impact }}</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="card-title">{{ check.title }}</h3>
+                    <p class="card-description">{{ check.description[:100] }}{% if check.description|length > 100 %}...{% endif %}</p>
+                    <div class="card-footer">
+                        <span class="card-status" data-status="unreviewed">Unreviewed</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for check details -->
+<div class="modal" id="check-modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Check Details</h2>
+            <button class="modal-close" id="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <div class="check-details">
+                <div class="detail-group">
+                    <label>Check ID:</label>
+                    <span id="detail-id"></span>
+                </div>
+                <div class="detail-group">
+                    <label>Title:</label>
+                    <span id="detail-title"></span>
+                </div>
+                <div class="detail-group">
+                    <label>Description:</label>
+                    <p id="detail-description"></p>
+                </div>
+                <div class="detail-group" id="rationale-group">
+                    <label>Rationale:</label>
+                    <p id="detail-rationale"></p>
+                </div>
+                <div class="detail-group" id="remediation-group">
+                    <label>Remediation:</label>
+                    <p id="detail-remediation"></p>
+                </div>
+                <div class="detail-group" id="compliance-group">
+                    <label>Compliance:</label>
+                    <div id="detail-compliance"></div>
+                </div>
+
+                <div class="decision-section">
+                    <h3>Decision</h3>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="decision" value="include" checked>
+                            <span>Include this check</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="decision" value="exclude">
+                            <span>Exclude this check</span>
+                        </label>
+                    </div>
+
+                    <div class="justification-area" id="justification-area" style="display: none;">
+                        <label for="justification-input">Justification <span class="required">*</span></label>
+                        <textarea id="justification-input" class="form-textarea" 
+                                  placeholder="Enter justification (10-1000 characters)" 
+                                  minlength="10" maxlength="1000" rows="4"></textarea>
+                        <div class="char-count"><span id="just-char-count">0</span>/1000</div>
+                        <div class="validation-feedback" id="just-validation"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="modal-prev-btn">Previous</button>
+            <button class="btn btn-secondary" id="modal-next-btn">Next</button>
+            <button class="btn btn-primary" id="modal-save-btn">Save & Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Pass data to JavaScript
+window.checksData = {{ checks|tojson }};
+window.decisionsData = {{ decisions|tojson }};
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/card-manager.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modal-handler.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filter-controller.js') }}"></script>
+<script src="{{ url_for('static', filename='js/storage-manager.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize managers
+    const cardManager = new CardManager(window.checksData, window.decisionsData);
+    const modalHandler = new ModalHandler(window.checksData, window.decisionsData, cardManager);
+    const filterController = new FilterController(window.checksData, cardManager);
+    
+    // Save draft button
+    document.getElementById('save-draft-btn').addEventListener('click', function() {
+        fetch('/api/save-draft', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Draft saved successfully', 'success');
+            } else {
+                showToast('Failed to save draft', 'error');
+            }
+        })
+        .catch(error => showToast('Error saving draft', 'error'));
+    });
+
+    // Review decisions button
+    document.getElementById('review-decisions-btn').addEventListener('click', function() {
+        window.location.href = '/approval';
+    });
+});
+</script>
+{% endblock %}

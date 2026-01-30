@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Approval - SCA Guide{% endblock %}
+
+{% block content %}
+<div class="approval-page">
+    <div class="approval-header">
+        <h2>Review Your Decisions</h2>
+        <p class="approval-subtitle">{{ custom_name }}</p>
+    </div>
+
+    <div class="summary-section">
+        <h3>Summary</h3>
+        <div class="summary-stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ total }}</div>
+                <div class="stat-label">Total Checks</div>
+            </div>
+            <div class="stat-card stat-success">
+                <div class="stat-value">{{ included }}</div>
+                <div class="stat-label">Included</div>
+            </div>
+            <div class="stat-card stat-danger">
+                <div class="stat-value">{{ excluded }}</div>
+                <div class="stat-label">Excluded</div>
+            </div>
+        </div>
+    </div>
+
+    {% if excluded_checks %}
+    <div class="excluded-section">
+        <h3>Excluded Checks</h3>
+        <div class="excluded-list">
+            {% for check in excluded_checks %}
+            <div class="excluded-item">
+                <div class="excluded-header">
+                    <span class="excluded-id">Check #{{ check.id }}</span>
+                    <span class="excluded-title">{{ check.title }}</span>
+                </div>
+                <div class="excluded-justification">
+                    <strong>Justification:</strong> {{ check.justification }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="no-exclusions">
+        <p>No checks have been excluded. All checks will be included in the custom policy.</p>
+    </div>
+    {% endif %}
+
+    <div class="approval-actions">
+        <button class="btn btn-secondary" id="back-btn">Back to Review</button>
+        <button class="btn btn-primary" id="export-btn">Approve &amp; Export</button>
+    </div>
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <p>Generating export files...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const backBtn = document.getElementById('back-btn');
+    const exportBtn = document.getElementById('export-btn');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    backBtn.addEventListener('click', function() {
+        window.location.href = '/review';
+    });
+
+    exportBtn.addEventListener('click', function() {
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'Exporting...';
+        loadingOverlay.style.display = 'flex';
+
+        fetch('/api/export', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.style.display = 'none';
+            
+            if (data.success) {
+                showToast('Export successful! Downloading...', 'success');
+                
+                // Download the file
+                window.location.href = data.download_url;
+                
+                // Show completion options
+                setTimeout(() => {
+                    if (confirm('Export completed! Would you like to start a new session?')) {
+                        // Cleanup and redirect
+                        fetch('/api/cleanup', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'}
+                        })
+                        .then(() => {
+                            window.location.href = '/';
+                        });
+                    }
+                }, 1000);
+            } else {
+                showToast(data.error || 'Export failed', 'error');
+                exportBtn.disabled = false;
+                exportBtn.textContent = 'Approve & Export';
+            }
+        })
+        .catch(error => {
+            loadingOverlay.style.display = 'none';
+            showToast('Export failed: ' + error.message, 'error');
+            exportBtn.disabled = false;
+            exportBtn.textContent = 'Approve & Export';
+        });
+    });
+});
+</script>
+{% endblock %}
