@@ -47,4 +47,10 @@ def create_app(config_class=Config):
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Only enable debug mode and external access in development
+    is_development = os.environ.get('FLASK_ENV') == 'development'
+    app.run(
+        debug=is_development,
+        host='127.0.0.1' if not is_development else '0.0.0.0',
+        port=5000
+    )

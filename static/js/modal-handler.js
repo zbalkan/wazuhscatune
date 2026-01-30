@@ -151,17 +151,25 @@ class ModalHandler {
     }
     
     formatCompliance(complianceList) {
-        let html = '<ul style="margin: 0; padding-left: 1.5rem;">';
+        const container = document.createElement('ul');
+        container.style.margin = '0';
+        container.style.paddingLeft = '1.5rem';
+        
         complianceList.forEach(comp => {
             Object.entries(comp).forEach(([key, values]) => {
                 if (values && values.length > 0) {
+                    const li = document.createElement('li');
+                    const strong = document.createElement('strong');
                     const formattedKey = key.replace(/_/g, ' ').toUpperCase();
-                    html += `<li><strong>${formattedKey}:</strong> ${values.join(', ')}</li>`;
+                    strong.textContent = formattedKey + ': ';
+                    li.appendChild(strong);
+                    li.appendChild(document.createTextNode(values.join(', ')));
+                    container.appendChild(li);
                 }
             });
         });
-        html += '</ul>';
-        return html;
+        
+        return container.outerHTML;
     }
     
     handleDecisionChange() {
