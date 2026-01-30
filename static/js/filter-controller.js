@@ -80,9 +80,9 @@ class FilterController {
                 return false;
             }
             
-            // Impact filter
+            // Impact filter - only filter if check has an impact level and it's in our filter list
             const checkImpact = (check.impact || '').toLowerCase();
-            if (checkImpact && !this.activeFilters.impact.includes(checkImpact)) {
+            if (checkImpact && checkImpact !== 'none' && checkImpact !== '' && !this.activeFilters.impact.includes(checkImpact)) {
                 return false;
             }
             
