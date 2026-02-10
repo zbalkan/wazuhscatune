@@ -1,5 +1,5 @@
 """Review routes - Review interface and AJAX endpoints."""
-from flask import Blueprint, render_template, request, session, jsonify, current_app
+from flask import Blueprint, render_template, request, session, jsonify, current_app, redirect, url_for
 
 from services.sca_service import SCAService
 from services.session_service import SessionService
@@ -13,7 +13,7 @@ def review_page():
     """Main review interface."""
     # Check if session is initialized
     if 'session_id' not in session or 'baseline_path' not in session:
-        return jsonify({'error': 'No active session. Please upload a file first.'}), 400
+        return redirect(url_for('upload.index'))
     
     try:
         # Load guide
@@ -69,10 +69,20 @@ def save_decision():
         return jsonify({'error': 'No active session'}), 400
     
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Invalid or missing JSON body'}), 400
+
         check_id = data.get('check_id')
+        if check_id is None:
+            return jsonify({'error': 'Missing required field: check_id'}), 400
+        try:
+            check_id = int(check_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Field check_id must be an integer'}), 400
+
         excluded = data.get('excluded', False)
-        justification = data.get('justification', '').strip()
+        justification = str(data.get('justification', '')).strip()
         
         # Validate
         if excluded and (not justification or len(justification) < 10):

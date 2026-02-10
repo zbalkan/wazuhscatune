@@ -2,7 +2,6 @@
 import os
 from typing import Optional, Dict, Any
 from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap
 
 from internal.guide import Guide
 from internal.sca import SCA, Check
@@ -27,7 +26,7 @@ class SCAService:
             if not os.path.exists(filepath):
                 return False, "File not found"
             
-            yaml = YAML()
+            yaml = YAML(typ='safe')
             with open(filepath, 'r', encoding='UTF-8') as f:
                 data = yaml.load(f)
             

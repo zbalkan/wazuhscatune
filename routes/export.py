@@ -1,11 +1,11 @@
 """Export routes - Export and download functionality."""
 import os
-from flask import Blueprint, render_template, request, session, jsonify, send_file, current_app
+from flask import Blueprint, render_template, session, jsonify, send_file, current_app, redirect, url_for
 
 from services.sca_service import SCAService
 from services.export_service import ExportService
 from services.session_service import SessionService
-from internal.sca import SCA, Check
+from internal.sca import SCA
 
 
 export_bp = Blueprint('export', __name__)
@@ -15,7 +15,7 @@ export_bp = Blueprint('export', __name__)
 def approval_page():
     """Final approval page."""
     if 'session_id' not in session or 'baseline_path' not in session:
-        return jsonify({'error': 'No active session'}), 400
+        return redirect(url_for('upload.index'))
     
     try:
         guide = SCAService.load_baseline(session['baseline_path'])
@@ -88,7 +88,7 @@ def export_files():
         
         # Generate files
         base_filename = custom_id
-        custom_sca_path, loosening_yml_path, loosening_md_path = ExportService.generate_files(
+        custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir = ExportService.generate_files(
             guide, loosening, base_filename
         )
         
@@ -97,9 +97,10 @@ def export_files():
         zip_filename = f"{custom_id}_export.zip"
         zip_path = ExportService.create_zip_archive(files, zip_filename)
         
-        # Store ZIP path in session for download
+        # Store paths in session for download and cleanup
         session['export_zip_path'] = zip_path
         session['export_zip_filename'] = zip_filename
+        session['export_temp_dir'] = temp_dir
         session.modified = True
         
         return jsonify({
@@ -133,6 +134,7 @@ def cleanup_session():
         session_id = session.get('session_id')
         baseline_path = session.get('baseline_path')
         export_zip_path = session.get('export_zip_path')
+        export_temp_dir = session.get('export_temp_dir')
         
         # Clean up uploaded file
         if baseline_path and os.path.exists(baseline_path):
@@ -141,10 +143,14 @@ def cleanup_session():
         # Clean up export ZIP and its directory
         if export_zip_path:
             ExportService.cleanup_temp_files(export_zip_path)
-            # Also remove the temp directory
-            temp_dir = os.path.dirname(export_zip_path)
-            if os.path.exists(temp_dir):
-                ExportService.cleanup_temp_files(temp_dir)
+            # Also remove the ZIP temp directory
+            zip_temp_dir = os.path.dirname(export_zip_path)
+            if os.path.exists(zip_temp_dir):
+                ExportService.cleanup_temp_files(zip_temp_dir)
+        
+        # Clean up generation temp directory
+        if export_temp_dir and os.path.exists(export_temp_dir):
+            ExportService.cleanup_temp_files(export_temp_dir)
         
         # Clean up draft
         if session_id:

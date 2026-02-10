@@ -93,12 +93,12 @@
 </div>
 
 <!-- Modal for check details -->
-<div class="modal" id="check-modal" style="display: none;">
+<div class="modal" id="check-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
             <h2 id="modal-title">Check Details</h2>
-            <button class="modal-close" id="modal-close-btn">&times;</button>
+            <button class="modal-close" id="modal-close-btn" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body" id="modal-body">
             <div class="check-details">
@@ -175,8 +175,8 @@ window.decisionsData = {{ decisions|tojson }};
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize managers
     const cardManager = new CardManager(window.checksData, window.decisionsData);
-    const modalHandler = new ModalHandler(window.checksData, window.decisionsData, cardManager);
-    const filterController = new FilterController(window.checksData, cardManager);
+    new ModalHandler(window.checksData, window.decisionsData, cardManager);
+    new FilterController(window.checksData, cardManager);
     
     // Save draft button
     document.getElementById('save-draft-btn').addEventListener('click', function() {

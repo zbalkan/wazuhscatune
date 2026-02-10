@@ -47,7 +47,7 @@ class Guide:
                     custom.get("checks").pop(index)
 
         with open(file=custom_path, mode='w') as fs:
-            self.__yaml__.dump(self.__sca_yml__, fs)
+            self.__yaml__.dump(custom, fs)
 
     def export_loosening(self, loosening_path: str) -> None:
         yml_path = loosening_path
