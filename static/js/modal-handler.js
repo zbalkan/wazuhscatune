@@ -122,7 +122,8 @@ class ModalHandler {
             const complianceGroup = document.getElementById('compliance-group');
             const complianceEl = document.getElementById('detail-compliance');
             if (check.compliance && check.compliance.length > 0) {
-                complianceEl.innerHTML = this.formatCompliance(check.compliance);
+                const container = this.formatCompliance(check.compliance);
+                complianceEl.replaceChildren(container);
                 complianceGroup.style.display = 'flex';
             } else {
                 complianceGroup.style.display = 'none';
@@ -169,7 +170,7 @@ class ModalHandler {
             });
         });
         
-        return container.outerHTML;
+        return container;
     }
     
     handleDecisionChange() {

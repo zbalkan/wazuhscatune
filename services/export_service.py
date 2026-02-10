@@ -13,7 +13,7 @@ class ExportService:
     
     @staticmethod
     def generate_files(guide: Guide, loosening: Loosening, 
-                      base_filename: str) -> Tuple[str, str, str]:
+                      base_filename: str) -> Tuple[str, str, str, str]:
         """
         Create custom SCA and loosening files.
         
@@ -23,7 +23,7 @@ class ExportService:
             base_filename: Base name for output files
             
         Returns:
-            Tuple of (custom_sca_path, loosening_yml_path, loosening_md_path)
+            Tuple of (custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir)
         """
         # Create temporary directory for generated files
         temp_dir = tempfile.mkdtemp()
@@ -42,7 +42,7 @@ class ExportService:
         # Export loosening files (both YAML and Markdown)
         guide.export_loosening(loosening_path=loosening_yml_path)
         
-        return custom_sca_path, loosening_yml_path, loosening_md_path
+        return custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir
     
     @staticmethod
     def create_zip_archive(files: List[str], archive_name: str) -> str:

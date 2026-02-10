@@ -1,7 +1,7 @@
 """Upload routes - File upload and validation."""
 import os
 import uuid
-from flask import Blueprint, render_template, request, session, redirect, url_for, jsonify, current_app
+from flask import Blueprint, render_template, request, session, url_for, jsonify, current_app
 from werkzeug.utils import secure_filename
 
 from services.sca_service import SCAService
@@ -54,33 +54,40 @@ def upload_file():
         filename = secure_filename(file.filename)
         session_id = str(uuid.uuid4())
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{session_id}_{filename}")
-        file.save(filepath)
         
-        # Validate SCA file
-        is_valid, error_msg = SCAService.validate_sca_file(filepath)
-        if not is_valid:
-            os.remove(filepath)
-            return jsonify({'error': f'Invalid SCA file: {error_msg}'}), 400
-        
-        # Initialize session
-        session['session_id'] = session_id
-        session['baseline_path'] = filepath
-        session['custom_name'] = custom_name
-        session['custom_description'] = custom_description
-        session['decisions'] = {}
-        session.permanent = True
-        
-        # Save draft
-        session_service = SessionService(current_app.config['DRAFT_FOLDER'])
-        session_data = SessionService.serialize_session_data(
-            filepath, custom_name, custom_description, {}
-        )
-        session_service.save_draft(session_id, session_data)
-        
-        return jsonify({
-            'success': True,
-            'redirect': url_for('review.review_page')
-        })
+        try:
+            file.save(filepath)
+            
+            # Validate SCA file
+            is_valid, error_msg = SCAService.validate_sca_file(filepath)
+            if not is_valid:
+                os.remove(filepath)
+                return jsonify({'error': f'Invalid SCA file: {error_msg}'}), 400
+            
+            # Initialize session
+            session['session_id'] = session_id
+            session['baseline_path'] = filepath
+            session['custom_name'] = custom_name
+            session['custom_description'] = custom_description
+            session['decisions'] = {}
+            session.permanent = True
+            
+            # Save draft
+            session_service = SessionService(current_app.config['DRAFT_FOLDER'])
+            session_data = SessionService.serialize_session_data(
+                filepath, custom_name, custom_description, {}
+            )
+            session_service.save_draft(session_id, session_data)
+            
+            return jsonify({
+                'success': True,
+                'redirect': url_for('review.review_page')
+            })
+        except Exception as e:
+            # Clean up uploaded file on error
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            raise
         
     except Exception as e:
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
@@ -103,7 +110,8 @@ def validate_file():
         
         # Save to temporary location for validation
         filename = secure_filename(file.filename)
-        temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], f"temp_{filename}")
+        validation_id = str(uuid.uuid4())
+        temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], f"validate_{validation_id}_{filename}")
         file.save(temp_path)
         
         # Validate

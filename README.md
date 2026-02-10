@@ -80,11 +80,11 @@ The web application will be available at `http://localhost:5000`
 
 The web application can be configured using environment variables:
 
-- `SECRET_KEY`: Secret key for session encryption (default: 'dev-secret-key-change-in-production')
+- `SECRET_KEY`: Secret key for session encryption. In development, if this variable is not set, a new random key is generated each time the application starts, which invalidates any existing sessions after a restart. In production, you **must** set this to a strong, stable value.
 - `FLASK_ENV`: Flask environment (development/production)
 - `FLASK_APP`: Flask application entry point (default: 'app.py')
 
-**Important**: Set a strong `SECRET_KEY` in production environments.
+**Important**: In production environments, always set a strong, unpredictable `SECRET_KEY` and do not rely on the development fallback behavior.
 
 ## CLI Application
 
