@@ -5,6 +5,9 @@
 
 class FilterController {
     constructor(checks, cardManager) {
+        console.log('[FilterController] Initializing...');
+        console.log('[FilterController] Checks count:', checks.length);
+        
         this.checks = checks;
         this.cardManager = cardManager;
         this.activeFilters = {
@@ -12,6 +15,8 @@ class FilterController {
             impact: ['high', 'medium', 'low'],
             searchText: ''
         };
+        
+        console.log('[FilterController] Initial filters:', this.activeFilters);
         
         this.initializeEventListeners();
         this.applyFilters();
@@ -67,16 +72,29 @@ class FilterController {
     }
     
     applyFilters() {
+        console.log('[FilterController] Applying filters...');
+        console.log('[FilterController] Active filters:', this.activeFilters);
+        console.log('[FilterController] Total checks:', this.checks.length);
+        
         const filteredChecks = this.getFilteredChecks();
         const filteredIds = filteredChecks.map(c => c.id);
+        
+        console.log('[FilterController] Filtered checks count:', filteredChecks.length);
+        console.log('[FilterController] Filtered check IDs:', filteredIds);
+        
         this.cardManager.filterCards(filteredIds);
     }
     
     getFilteredChecks() {
-        return this.checks.filter(check => {
+        let statusFiltered = 0;
+        let impactFiltered = 0;
+        let searchFiltered = 0;
+        
+        const result = this.checks.filter(check => {
             // Status filter
             const checkStatus = this.getCheckStatus(check.id);
             if (!this.activeFilters.status.includes(checkStatus)) {
+                statusFiltered++;
                 return false;
             }
             
@@ -86,6 +104,8 @@ class FilterController {
             // If check has no impact or 'none', always include it (don't filter it out)
             if (checkImpact && checkImpact !== 'none') {
                 if (!this.activeFilters.impact.includes(checkImpact)) {
+                    impactFiltered++;
+                    console.log(`[FilterController] Check ${check.id} filtered by impact: "${checkImpact}" not in`, this.activeFilters.impact);
                     return false;
                 }
             }
@@ -101,12 +121,30 @@ class FilterController {
                 ].join(' ').toLowerCase();
                 
                 if (!searchableText.includes(this.activeFilters.searchText)) {
+                    searchFiltered++;
                     return false;
                 }
             }
             
             return true;
         });
+        
+        console.log('[FilterController] Filter results:');
+        console.log(`  - Filtered by status: ${statusFiltered}`);
+        console.log(`  - Filtered by impact: ${impactFiltered}`);
+        console.log(`  - Filtered by search: ${searchFiltered}`);
+        console.log(`  - Passed filters: ${result.length}`);
+        
+        // Sample some checks that were filtered by impact
+        if (impactFiltered > 0 && impactFiltered < 10) {
+            console.log('[FilterController] Sample impact values from checks:');
+            this.checks.slice(0, 10).forEach(check => {
+                const checkImpact = (check.impact || '').toLowerCase();
+                console.log(`  Check ${check.id}: impact="${checkImpact}" (length: ${checkImpact.length})`);
+            });
+        }
+        
+        return result;
     }
     
     getCheckStatus(checkId) {

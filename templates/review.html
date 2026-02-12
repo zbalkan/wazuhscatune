@@ -173,10 +173,30 @@ window.decisionsData = {{ decisions|tojson }};
 <script src="{{ url_for('static', filename='js/storage-manager.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== SCA Guide Review Page Initialization ===');
+    console.log('Checks data available:', typeof window.checksData !== 'undefined');
+    console.log('Decisions data available:', typeof window.decisionsData !== 'undefined');
+    
+    if (window.checksData) {
+        console.log('Total checks:', window.checksData.length);
+        console.log('Sample check (first):', window.checksData[0]);
+    }
+    
+    if (window.decisionsData) {
+        console.log('Total decisions:', Object.keys(window.decisionsData).length);
+    }
+    
     // Initialize managers
+    console.log('Initializing CardManager...');
     const cardManager = new CardManager(window.checksData, window.decisionsData);
+    
+    console.log('Initializing ModalHandler...');
     new ModalHandler(window.checksData, window.decisionsData, cardManager);
+    
+    console.log('Initializing FilterController...');
     new FilterController(window.checksData, cardManager);
+    
+    console.log('=== Initialization Complete ===');
     
     // Save draft button
     document.getElementById('save-draft-btn').addEventListener('click', function() {

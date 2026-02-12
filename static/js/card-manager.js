@@ -5,9 +5,20 @@
 
 class CardManager {
     constructor(checks, decisions = {}) {
+        console.log('[CardManager] Initializing...');
+        console.log('[CardManager] Checks data:', checks.length, 'checks');
+        console.log('[CardManager] Sample check data:', checks.slice(0, 3));
+        
         this.checks = checks;
         this.decisions = decisions;
         this.grid = document.getElementById('cards-grid');
+        
+        if (!this.grid) {
+            console.error('[CardManager] ERROR: cards-grid element not found!');
+            return;
+        }
+        
+        console.log('[CardManager] Grid element found');
         
         // Initialize card click handlers
         this.initializeCards();
@@ -101,15 +112,27 @@ class CardManager {
     }
     
     filterCards(filteredCheckIds) {
+        console.log('[CardManager] Filtering cards...');
         const cards = this.grid.querySelectorAll('.check-card');
+        console.log('[CardManager] Total card elements in DOM:', cards.length);
+        console.log('[CardManager] Check IDs to show:', filteredCheckIds.length);
+        
+        let shown = 0;
+        let hidden = 0;
+        
         cards.forEach(card => {
             const checkId = parseInt(card.dataset.checkId);
             if (filteredCheckIds.includes(checkId)) {
                 card.style.display = 'block';
+                shown++;
             } else {
                 card.style.display = 'none';
+                hidden++;
             }
         });
+        
+        console.log('[CardManager] Cards shown:', shown);
+        console.log('[CardManager] Cards hidden:', hidden);
     }
 }
 
