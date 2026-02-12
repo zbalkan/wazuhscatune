@@ -85,15 +85,17 @@ class ModalHandler {
         this.currentCheckId = null;
     }
     
-    async loadCheckData(checkId) {
+    loadCheckData(checkId) {
         try {
-            const response = await fetch(`/api/check/${checkId}`);
-            const check = await response.json();
-            
-            if (check.error) {
-                showToast(check.error, 'error');
+            // Get check data from in-memory array (no API call needed)
+            const check = this.checks.find(c => c.id === checkId);
+            if (!check) {
+                showToast('Check not found', 'error');
                 return;
             }
+            
+            // Get decision data from in-memory decisions
+            const decision = this.decisions[checkId] || { excluded: false, justification: '' };
             
             // Populate modal
             document.getElementById('detail-id').textContent = check.id;
@@ -139,10 +141,10 @@ class ModalHandler {
             }
             
             // Set decision state
-            if (check.excluded) {
+            if (decision.excluded) {
                 this.excludeRadio.checked = true;
                 this.justificationArea.style.display = 'block';
-                this.justificationInput.value = check.justification || '';
+                this.justificationInput.value = decision.justification || '';
                 this.justCharCount.textContent = this.justificationInput.value.length;
             } else {
                 this.includeRadio.checked = true;
@@ -231,6 +233,9 @@ class ModalHandler {
             const data = await response.json();
             
             if (data.success) {
+                // Update in-memory decisions object
+                this.decisions[this.currentCheckId] = { excluded, justification };
+                
                 // Update card manager
                 this.cardManager.updateCard(this.currentCheckId, { excluded, justification });
                 showToast('Decision saved', 'success');
