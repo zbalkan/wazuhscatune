@@ -73,11 +73,15 @@ def export_files():
         # Create loosening object
         custom_name = session.get('custom_name')
         custom_description = session.get('custom_description')
-        custom_id = custom_name.lower().replace(' ', '_').replace('-', '_').replace('.', '_')
-        custom_id = custom_id.replace('___', '_').replace('__', '_')
+        # Use the sanitized name stored during upload
+        sanitized_name = session.get('sanitized_name')
+        if not sanitized_name:
+            # Fallback to old sanitization if not in session (backward compatibility)
+            sanitized_name = custom_name.lower().replace(' ', '_').replace('-', '_').replace('.', '_')
+            sanitized_name = sanitized_name.replace('___', '_').replace('__', '_')
         
         full_description = f"{custom_description} (Based on {sca.policy.name})"
-        loosening = SCAService.create_loosening(custom_name, custom_id, full_description)
+        loosening = SCAService.create_loosening(custom_name, sanitized_name, full_description)
         
         # Add decisions to loosening
         for check in sca.checks:
@@ -86,15 +90,15 @@ def export_files():
                 justification = decisions[check_id].get('justification', '')
                 SCAService.add_decision(loosening, check, justification)
         
-        # Generate files
-        base_filename = custom_id
+        # Generate files using sanitized name
+        base_filename = sanitized_name
         custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir = ExportService.generate_files(
             guide, loosening, base_filename
         )
         
         # Create ZIP archive
         files = [custom_sca_path, loosening_yml_path, loosening_md_path]
-        zip_filename = f"{custom_id}_export.zip"
+        zip_filename = f"{sanitized_name}_export.zip"
         zip_path = ExportService.create_zip_archive(files, zip_filename)
         
         # Store paths in session for download and cleanup

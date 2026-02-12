@@ -1,6 +1,7 @@
 """Upload routes - File upload and validation."""
 import os
 import uuid
+import re
 from flask import Blueprint, render_template, request, session, url_for, jsonify, current_app
 from werkzeug.utils import secure_filename
 
@@ -15,6 +16,40 @@ def allowed_file(filename):
     """Check if file extension is allowed."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+
+
+def sanitize_policy_name(name):
+    """
+    Sanitize policy name for use as filename.
+    - Convert to lowercase
+    - Remove problematic punctuation
+    - Replace spaces with underscores
+    - Remove leading/trailing underscores
+    
+    Example: "Company Windows 11 Hardening Policy" -> "company_windows_11_hardening_policy"
+    """
+    if not name:
+        return ''
+    
+    # Convert to lowercase
+    sanitized = name.lower()
+    
+    # Keep only alphanumeric, spaces, hyphens, and underscores
+    sanitized = re.sub(r'[^a-z0-9\s\-_]', '', sanitized)
+    
+    # Replace multiple spaces/hyphens with single space
+    sanitized = re.sub(r'[\s\-]+', ' ', sanitized)
+    
+    # Trim whitespace
+    sanitized = sanitized.strip()
+    
+    # Replace spaces with underscores
+    sanitized = sanitized.replace(' ', '_')
+    
+    # Remove leading/trailing underscores
+    sanitized = re.sub(r'^_+|_+$', '', sanitized)
+    
+    return sanitized
 
 
 @upload_bp.route('/')
@@ -44,11 +79,11 @@ def upload_file():
         custom_description = request.form.get('custom_description', '').strip()
         
         # Validate inputs
-        if not custom_name or len(custom_name) < 1 or len(custom_name) > 100:
-            return jsonify({'error': 'Policy name must be between 1 and 100 characters'}), 400
+        if not custom_name or len(custom_name) < 15 or len(custom_name) > 100:
+            return jsonify({'error': 'Policy name must be between 15 and 100 characters'}), 400
         
-        if not custom_description or len(custom_description) < 1 or len(custom_description) > 500:
-            return jsonify({'error': 'Policy description must be between 1 and 500 characters'}), 400
+        if not custom_description or len(custom_description) < 50 or len(custom_description) > 500:
+            return jsonify({'error': 'Policy description must be between 50 and 500 characters'}), 400
         
         # Save uploaded file
         filename = secure_filename(file.filename)
@@ -64,10 +99,17 @@ def upload_file():
                 os.remove(filepath)
                 return jsonify({'error': f'Invalid SCA file: {error_msg}'}), 400
             
+            # Sanitize policy name for filename
+            sanitized_name = sanitize_policy_name(custom_name)
+            if not sanitized_name:
+                os.remove(filepath)
+                return jsonify({'error': 'Policy name contains no valid characters for filename'}), 400
+            
             # Initialize session
             session['session_id'] = session_id
             session['baseline_path'] = filepath
             session['custom_name'] = custom_name
+            session['sanitized_name'] = sanitized_name  # Store sanitized name for file generation
             session['custom_description'] = custom_description
             session['decisions'] = {}
             session.permanent = True
