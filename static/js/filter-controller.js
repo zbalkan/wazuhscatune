@@ -98,16 +98,23 @@ class FilterController {
                 return false;
             }
             
-            // Impact filter - only apply if check has a valid impact level
-            const checkImpact = (check.impact || '').toLowerCase();
-            // If check has a valid impact level (not empty, not 'none'), it must match the filter
-            // If check has no impact or 'none', always include it (don't filter it out)
-            if (checkImpact && checkImpact !== 'none') {
+            // Impact filter - only apply to checks with recognized impact levels
+            const checkImpact = (check.impact || '').toLowerCase().trim();
+            const validImpactLevels = ['high', 'medium', 'low'];
+            
+            // Only filter if the check has a RECOGNIZED impact level
+            // If impact is unrecognized or empty, let it pass through
+            if (validImpactLevels.includes(checkImpact)) {
+                // This check has a valid impact level - apply the filter
                 if (!this.activeFilters.impact.includes(checkImpact)) {
                     impactFiltered++;
                     console.log(`[FilterController] Check ${check.id} filtered by impact: "${checkImpact}" not in`, this.activeFilters.impact);
                     return false;
                 }
+            } else {
+                // Impact is unrecognized (e.g., long description text or empty)
+                // Always pass through - don't filter based on impact
+                console.log(`[FilterController] Check ${check.id} has non-standard impact, passing through: "${checkImpact.substring(0, 50)}..."`);
             }
             
             // Search filter
