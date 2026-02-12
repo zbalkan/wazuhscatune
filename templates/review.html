@@ -63,9 +63,6 @@
                 <div class="check-card" data-check-id="{{ check.id }}" data-impact="{{ check.impact|lower }}">
                     <div class="card-header">
                         <span class="check-id">Check #{{ check.id }}</span>
-                        {% if check.impact %}
-                        <span class="impact-badge impact-{{ check.impact|lower }}">{{ check.impact }}</span>
-                        {% endif %}
                     </div>
                     <h3 class="card-title">{{ check.title }}</h3>
                     <p class="card-description">{{ check.description[:100] }}{% if check.description|length > 100 %}...{% endif %}</p>
@@ -100,6 +97,10 @@
                 <div class="detail-group">
                     <label>Description:</label>
                     <p id="detail-description"></p>
+                </div>
+                <div class="detail-group" id="impact-group">
+                    <label>Impact:</label>
+                    <p id="detail-impact"></p>
                 </div>
                 <div class="detail-group" id="rationale-group">
                     <label>Rationale:</label>

@@ -100,6 +100,15 @@ class ModalHandler {
             document.getElementById('detail-title').textContent = check.title;
             document.getElementById('detail-description').textContent = check.description || 'No description available';
             
+            // Impact
+            const impactGroup = document.getElementById('impact-group');
+            if (check.impact) {
+                document.getElementById('detail-impact').textContent = check.impact;
+                impactGroup.style.display = 'flex';
+            } else {
+                impactGroup.style.display = 'none';
+            }
+            
             // Rationale
             const rationaleGroup = document.getElementById('rationale-group');
             if (check.rationale) {
