@@ -12,8 +12,8 @@ class FilterController {
         this.cardManager = cardManager;
         this.activeFilters = {
             status: ['included', 'excluded', 'unreviewed'],
-            impact: ['high', 'medium', 'low'],
-            searchText: ''
+            searchText: '',
+            impactSearchText: ''
         };
         
         console.log('[FilterController] Initial filters:', this.activeFilters);
@@ -29,13 +29,7 @@ class FilterController {
             cb.addEventListener('change', () => this.handleStatusFilter());
         });
         
-        // Impact filters
-        const impactCheckboxes = document.querySelectorAll('input[name="impact"]');
-        impactCheckboxes.forEach(cb => {
-            cb.addEventListener('change', () => this.handleImpactFilter());
-        });
-        
-        // Search
+        // General search
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
             let debounceTimer;
@@ -43,6 +37,18 @@ class FilterController {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     this.handleSearch(e.target.value);
+                }, 300);
+            });
+        }
+        
+        // Impact search
+        const impactSearchInput = document.getElementById('impact-search-input');
+        if (impactSearchInput) {
+            let debounceTimer;
+            impactSearchInput.addEventListener('input', (e) => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    this.handleImpactSearch(e.target.value);
                 }, 300);
             });
         }
@@ -60,14 +66,13 @@ class FilterController {
         this.applyFilters();
     }
     
-    handleImpactFilter() {
-        const impactCheckboxes = document.querySelectorAll('input[name="impact"]:checked');
-        this.activeFilters.impact = Array.from(impactCheckboxes).map(cb => cb.value);
+    handleSearch(query) {
+        this.activeFilters.searchText = query.toLowerCase();
         this.applyFilters();
     }
     
-    handleSearch(query) {
-        this.activeFilters.searchText = query.toLowerCase();
+    handleImpactSearch(query) {
+        this.activeFilters.impactSearchText = query.toLowerCase();
         this.applyFilters();
     }
     
@@ -87,7 +92,7 @@ class FilterController {
     
     getFilteredChecks() {
         let statusFiltered = 0;
-        let impactFiltered = 0;
+        let impactSearchFiltered = 0;
         let searchFiltered = 0;
         
         const result = this.checks.filter(check => {
@@ -98,26 +103,16 @@ class FilterController {
                 return false;
             }
             
-            // Impact filter - only apply to checks with recognized impact levels
-            const checkImpact = (check.impact || '').toLowerCase().trim();
-            const validImpactLevels = ['high', 'medium', 'low'];
-            
-            // Only filter if the check has a RECOGNIZED impact level
-            // If impact is unrecognized or empty, let it pass through
-            if (validImpactLevels.includes(checkImpact)) {
-                // This check has a valid impact level - apply the filter
-                if (!this.activeFilters.impact.includes(checkImpact)) {
-                    impactFiltered++;
-                    console.log(`[FilterController] Check ${check.id} filtered by impact: "${checkImpact}" not in`, this.activeFilters.impact);
+            // Impact search filter (text-based)
+            if (this.activeFilters.impactSearchText) {
+                const checkImpact = (check.impact || '').toLowerCase();
+                if (!checkImpact.includes(this.activeFilters.impactSearchText)) {
+                    impactSearchFiltered++;
                     return false;
                 }
-            } else {
-                // Impact is unrecognized (e.g., long description text or empty)
-                // Always pass through - don't filter based on impact
-                console.log(`[FilterController] Check ${check.id} has non-standard impact, passing through: "${checkImpact.substring(0, 50)}..."`);
             }
             
-            // Search filter
+            // General search filter
             if (this.activeFilters.searchText) {
                 const searchableText = [
                     check.id.toString(),
@@ -138,18 +133,9 @@ class FilterController {
         
         console.log('[FilterController] Filter results:');
         console.log(`  - Filtered by status: ${statusFiltered}`);
-        console.log(`  - Filtered by impact: ${impactFiltered}`);
-        console.log(`  - Filtered by search: ${searchFiltered}`);
+        console.log(`  - Filtered by impact search: ${impactSearchFiltered}`);
+        console.log(`  - Filtered by general search: ${searchFiltered}`);
         console.log(`  - Passed filters: ${result.length}`);
-        
-        // Sample some checks that were filtered by impact
-        if (impactFiltered > 0 && impactFiltered < 10) {
-            console.log('[FilterController] Sample impact values from checks:');
-            this.checks.slice(0, 10).forEach(check => {
-                const checkImpact = (check.impact || '').toLowerCase();
-                console.log(`  Check ${check.id}: impact="${checkImpact}" (length: ${checkImpact.length})`);
-            });
-        }
         
         return result;
     }
@@ -168,16 +154,18 @@ class FilterController {
         statusCheckboxes.forEach(cb => cb.checked = true);
         this.activeFilters.status = ['included', 'excluded', 'unreviewed'];
         
-        // Reset impact filters
-        const impactCheckboxes = document.querySelectorAll('input[name="impact"]');
-        impactCheckboxes.forEach(cb => cb.checked = true);
-        this.activeFilters.impact = ['high', 'medium', 'low'];
-        
-        // Reset search
+        // Reset general search
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
             searchInput.value = '';
             this.activeFilters.searchText = '';
+        }
+        
+        // Reset impact search
+        const impactSearchInput = document.getElementById('impact-search-input');
+        if (impactSearchInput) {
+            impactSearchInput.value = '';
+            this.activeFilters.impactSearchText = '';
         }
         
         this.applyFilters();
