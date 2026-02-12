@@ -31,16 +31,19 @@
             <div class="form-group">
                 <label for="custom-name" class="form-label">Custom Policy Name <span class="required">*</span></label>
                 <input type="text" id="custom-name" name="custom_name" 
-                       class="form-input" placeholder="Enter policy name (1-100 characters)" 
-                       minlength="1" maxlength="100" required>
+                       class="form-input" placeholder="Enter policy name (15-100 characters)" 
+                       minlength="15" maxlength="100" required>
+                <div class="filename-hint" id="filename-hint" style="display: none; margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+                    Filename: <code id="sanitized-filename" style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px;"></code>
+                </div>
                 <div class="validation-feedback" id="name-validation"></div>
             </div>
 
             <div class="form-group">
                 <label for="custom-description" class="form-label">Custom Policy Description <span class="required">*</span></label>
                 <textarea id="custom-description" name="custom_description" 
-                          class="form-textarea" placeholder="Enter policy description (1-500 characters)" 
-                          minlength="1" maxlength="500" rows="4" required></textarea>
+                          class="form-textarea" placeholder="Enter policy description (50-500 characters)" 
+                          minlength="50" maxlength="500" rows="4" required></textarea>
                 <div class="char-count"><span id="desc-char-count">0</span>/500</div>
                 <div class="validation-feedback" id="desc-validation"></div>
             </div>
@@ -68,8 +71,47 @@ document.addEventListener('DOMContentLoaded', function() {
     const customName = document.getElementById('custom-name');
     const customDesc = document.getElementById('custom-description');
     const descCharCount = document.getElementById('desc-char-count');
+    const filenameHint = document.getElementById('filename-hint');
+    const sanitizedFilename = document.getElementById('sanitized-filename');
     
     let selectedFile = null;
+
+    // Sanitize policy name for filename
+    function sanitizePolicyName(name) {
+        if (!name) return '';
+        
+        // Convert to lowercase
+        let sanitized = name.toLowerCase();
+        
+        // Remove or replace problematic characters
+        // Keep alphanumeric, spaces, hyphens, and underscores
+        sanitized = sanitized.replace(/[^a-z0-9\s\-_]/g, '');
+        
+        // Replace multiple spaces/hyphens with single space
+        sanitized = sanitized.replace(/[\s\-]+/g, ' ');
+        
+        // Trim whitespace
+        sanitized = sanitized.trim();
+        
+        // Replace spaces with underscores
+        sanitized = sanitized.replace(/\s+/g, '_');
+        
+        // Remove leading/trailing underscores
+        sanitized = sanitized.replace(/^_+|_+$/g, '');
+        
+        return sanitized;
+    }
+
+    // Update filename hint when policy name changes
+    customName.addEventListener('input', function() {
+        const sanitized = sanitizePolicyName(this.value);
+        if (sanitized && this.value.length >= 15) {
+            sanitizedFilename.textContent = sanitized + '.yml';
+            filenameHint.style.display = 'block';
+        } else {
+            filenameHint.style.display = 'none';
+        }
+    });
 
     // Character counter
     customDesc.addEventListener('input', function() {
@@ -135,8 +177,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function validateForm() {
         const hasFile = selectedFile !== null;
-        const hasName = customName.value.trim().length >= 1 && customName.value.trim().length <= 100;
-        const hasDesc = customDesc.value.trim().length >= 1 && customDesc.value.trim().length <= 500;
+        const hasName = customName.value.trim().length >= 15 && customName.value.trim().length <= 100;
+        const hasDesc = customDesc.value.trim().length >= 50 && customDesc.value.trim().length <= 500;
         
         submitBtn.disabled = !(hasFile && hasName && hasDesc);
     }
