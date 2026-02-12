@@ -80,10 +80,14 @@ class FilterController {
                 return false;
             }
             
-            // Impact filter - only filter if check has an impact level and it's in our filter list
+            // Impact filter - only apply if check has a valid impact level
             const checkImpact = (check.impact || '').toLowerCase();
-            if (checkImpact && checkImpact !== 'none' && checkImpact !== '' && !this.activeFilters.impact.includes(checkImpact)) {
-                return false;
+            // If check has a valid impact level (not empty, not 'none'), it must match the filter
+            // If check has no impact or 'none', always include it (don't filter it out)
+            if (checkImpact && checkImpact !== 'none') {
+                if (!this.activeFilters.impact.includes(checkImpact)) {
+                    return false;
+                }
             }
             
             // Search filter
