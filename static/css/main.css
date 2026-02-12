@@ -9,7 +9,7 @@
 
 /* Root Variables - Color Scheme */
 :root {
-    --color-primary: #1e3a8a;
+    --color-primary: rgb(61, 130, 241);
     --color-secondary: #6b7280;
     --color-success: #10b981;
     --color-warning: #f59e0b;
@@ -19,9 +19,12 @@
     --color-text-light: #6b7280;
     --color-border: #e5e7eb;
     --color-white: #ffffff;
+    --color-header-bg: rgb(61, 130, 241);
+    --color-footer-bg: rgb(0, 0, 0);
+    --color-footer-border: #444;
     
     /* Typography */
-    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', 'Liberation Sans', sans-serif;
     --font-size-base: 16px;
     --line-height: 1.5;
     
@@ -81,21 +84,24 @@ a:hover {
 
 /* Header */
 .app-header {
-    background-color: var(--color-white);
-    border-bottom: 1px solid var(--color-border);
-    padding: var(--spacing-lg) 0;
-    margin-bottom: var(--spacing-xl);
+    background-color: var(--color-header-bg);
+    color: white;
+    padding: 15px 0;
+    margin-bottom: 0;
 }
 
 .app-title {
-    margin-bottom: var(--spacing-xs);
-    color: var(--color-primary);
+    margin-bottom: 5px;
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
 }
 
 .app-subtitle {
-    color: var(--color-text-light);
-    font-size: 0.875rem;
+    color: white;
+    font-size: 14px;
     margin-bottom: 0;
+    font-family: monospace;
 }
 
 /* Main Content */
@@ -106,17 +112,29 @@ a:hover {
 
 /* Footer */
 .app-footer {
-    background-color: var(--color-white);
-    border-top: 1px solid var(--color-border);
-    padding: var(--spacing-lg) 0;
+    background-color: var(--color-footer-bg);
+    color: white;
+    padding: 10px 0;
     text-align: center;
     margin-top: var(--spacing-xl);
+    border-top: 1px solid var(--color-footer-border);
+    font-size: 12px;
 }
 
 .app-footer p {
     margin-bottom: 0;
-    color: var(--color-text-light);
-    font-size: 0.875rem;
+    color: white;
+}
+
+.app-footer a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.app-footer a:hover {
+    text-decoration: underline;
 }
 
 /* Buttons */
