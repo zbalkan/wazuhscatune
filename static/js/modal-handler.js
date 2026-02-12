@@ -239,7 +239,7 @@ class ModalHandler {
                 // Update card manager
                 this.cardManager.updateCard(this.currentCheckId, { excluded, justification });
                 showToast('Decision saved', 'success');
-                this.closeModal();
+                // Don't close modal - user can continue with Next button or close manually
             } else {
                 showToast(data.error || 'Failed to save decision', 'error');
             }
