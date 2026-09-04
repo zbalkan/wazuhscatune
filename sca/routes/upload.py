@@ -2,14 +2,17 @@
 import os
 import uuid
 import re
-from flask import Blueprint, render_template, request, session, url_for, jsonify, current_app
+import logging
+from flask import Blueprint, render_template, request, session, url_for, jsonify, current_app, redirect
 from werkzeug.utils import secure_filename
 
 from sca.services.sca_service import SCAService
 from sca.services.session_service import SessionService
+from sca.services.session_service import contained_path
 
 
 upload_bp = Blueprint('upload', __name__)
+logger = logging.getLogger(__name__)
 
 
 def allowed_file(filename):
@@ -55,7 +58,8 @@ def sanitize_policy_name(name):
 @upload_bp.route('/')
 def index():
     """Landing page with upload form."""
-    return render_template('index.html')
+    drafts = SessionService(current_app.config['DRAFT_FOLDER']).list_drafts()
+    return render_template('index.html', drafts=drafts)
 
 
 @upload_bp.route('/upload', methods=['POST'])
@@ -107,7 +111,7 @@ def upload_file():
 
             # Initialize session
             session['session_id'] = session_id
-            session['baseline_path'] = filepath
+            session['baseline_filename'] = os.path.basename(filepath)
             session['custom_name'] = custom_name
             session['sanitized_name'] = sanitized_name  # Store sanitized name for file generation
             session['custom_description'] = custom_description
@@ -117,22 +121,25 @@ def upload_file():
             # Save draft
             session_service = SessionService(current_app.config['DRAFT_FOLDER'])
             session_data = SessionService.serialize_session_data(
-                filepath, custom_name, custom_description, {}
+                os.path.basename(filepath), custom_name, sanitized_name,
+                custom_description, {}
             )
             session_service.save_draft(session_id, session_data)
 
             return jsonify({
                 'success': True,
-                'redirect': url_for('review.review_page')
+                'redirect': url_for('review.review_page'),
+                'recovery_url': url_for('upload.recover_draft', session_id=session_id)
             })
-        except Exception as e:
+        except Exception:
             # Clean up uploaded file on error
             if os.path.exists(filepath):
                 os.remove(filepath)
             raise
 
-    except Exception as e:
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+    except Exception:
+        logger.exception("Unable to upload SCA file")
+        return jsonify({'error': 'Unable to process SCA file.'}), 500
 
 
 @upload_bp.route('/validate', methods=['POST'])
@@ -154,19 +161,43 @@ def validate_file():
         filename = secure_filename(file.filename)
         validation_id = str(uuid.uuid4())
         temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], f"validate_{validation_id}_{filename}")
-        file.save(temp_path)
-
-        # Validate
-        is_valid, error_msg = SCAService.validate_sca_file(temp_path)
-
-        # Clean up
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        try:
+            file.save(temp_path)
+            is_valid, error_msg = SCAService.validate_sca_file(temp_path)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
         if is_valid:
             return jsonify({'valid': True})
         else:
             return jsonify({'valid': False, 'error': error_msg})
 
-    except Exception as e:
-        return jsonify({'valid': False, 'error': str(e)}), 500
+    except Exception:
+        logger.exception("Unable to validate SCA file")
+        return jsonify({'valid': False, 'error': 'Unable to validate SCA file.'}), 500
+
+
+@upload_bp.route('/recover/<session_id>')
+def recover_draft(session_id):
+    """Restore a locally persisted review draft."""
+    service = SessionService(current_app.config['DRAFT_FOLDER'])
+    data = service.load_draft(session_id)
+    if not data:
+        return jsonify({'error': 'Draft not found'}), 404
+    try:
+        filename = data['baseline_filename']
+        path = contained_path(current_app.config['UPLOAD_FOLDER'], filename)
+        if not path.is_file():
+            return jsonify({'error': 'Draft baseline is no longer available'}), 410
+        session.clear()
+        session.update(session_id=session_id, baseline_filename=filename,
+                       custom_name=data['custom_name'],
+                       sanitized_name=data['sanitized_name'],
+                       custom_description=data['custom_description'],
+                       decisions=data.get('decisions', {}))
+        session.permanent = True
+        return redirect(url_for('review.review_page'))
+    except (KeyError, TypeError, ValueError):
+        logger.warning("Invalid draft data for %s", session_id, exc_info=True)
+        return jsonify({'error': 'Draft is invalid'}), 400

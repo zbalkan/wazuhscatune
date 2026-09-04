@@ -4,10 +4,7 @@
  */
 
 class CardManager {
-    constructor(checks, decisions = {}) {
-        console.log('[CardManager] Initializing...');
-        console.log('[CardManager] Checks data:', checks.length, 'checks');
-        console.log('[CardManager] Sample check data:', checks.slice(0, 3));
+    constructor(checks, decisions = {}, stats = null) {
         
         this.checks = checks;
         this.decisions = decisions;
@@ -18,12 +15,10 @@ class CardManager {
             return;
         }
         
-        console.log('[CardManager] Grid element found');
-        
         // Initialize card click handlers
         this.initializeCards();
         this.updateAllCards();
-        this.updateProgress();
+        stats ? this.applyStats(stats) : this.updateProgress();
     }
     
     initializeCards() {
@@ -66,7 +61,6 @@ class CardManager {
             }
         }
         
-        this.updateProgress();
     }
     
     updateAllCards() {
@@ -110,29 +104,30 @@ class CardManager {
             progressFill.style.width = percentage + '%';
         }
     }
+
+    applyStats(stats) {
+        if (!stats) return;
+        document.getElementById('total-count').textContent = stats.total;
+        document.getElementById('reviewed-count').textContent = stats.reviewed;
+        document.getElementById('excluded-count').textContent = stats.exceptions;
+        const unreviewed = document.getElementById('unreviewed-count');
+        const effective = document.getElementById('effective-count');
+        if (unreviewed) unreviewed.textContent = stats.unreviewed;
+        if (effective) effective.textContent = stats.effective_included;
+        document.getElementById('progress-fill').style.width = stats.review_completion + '%';
+    }
     
     filterCards(filteredCheckIds) {
-        console.log('[CardManager] Filtering cards...');
         const cards = this.grid.querySelectorAll('.check-card');
-        console.log('[CardManager] Total card elements in DOM:', cards.length);
-        console.log('[CardManager] Check IDs to show:', filteredCheckIds.length);
-        
-        let shown = 0;
-        let hidden = 0;
         
         cards.forEach(card => {
             const checkId = parseInt(card.dataset.checkId);
             if (filteredCheckIds.includes(checkId)) {
                 card.style.display = 'block';
-                shown++;
             } else {
                 card.style.display = 'none';
-                hidden++;
             }
         });
-        
-        console.log('[CardManager] Cards shown:', shown);
-        console.log('[CardManager] Cards hidden:', hidden);
     }
 }
 

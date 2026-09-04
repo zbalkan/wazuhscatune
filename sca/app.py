@@ -4,22 +4,30 @@
 import os
 
 from flask import Flask, render_template
+from flask_session import Session
 
 from sca.config import Config
 from sca.routes.export import export_bp
 from sca.routes.review import review_bp
 from sca.routes.upload import upload_bp
+from sca.services.session_service import SessionService
 
 
 def create_app(config_class=Config) -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
     app.config.from_object(config_class)
-
     # Ensure required directories exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['DRAFT_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['EXPORT_FOLDER'], exist_ok=True)
     os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+    Session(app)
+
+    SessionService.cleanup_expired(
+        [app.config['UPLOAD_FOLDER'], app.config['DRAFT_FOLDER'],
+         app.config['EXPORT_FOLDER'], app.config['SESSION_FILE_DIR']],
+        app.config['FILE_TTL_HOURS'])
 
     # Register blueprints
     app.register_blueprint(upload_bp)
@@ -42,12 +50,13 @@ def create_app(config_class=Config) -> Flask:
     return app
 
 
-if __name__ == '__main__':
+def main() -> None:
+    """Run the local web application."""
     app = create_app()
-    # Only enable debug mode and external access in development
     is_development = os.environ.get('FLASK_ENV') == 'development'
-    app.run(
-        debug=is_development,
-        host='127.0.0.1' if not is_development else '0.0.0.0',
-        port=5000
-    )
+    app.run(debug=is_development,
+            host='0.0.0.0' if is_development else '127.0.0.1', port=5000)
+
+
+if __name__ == '__main__':
+    main()

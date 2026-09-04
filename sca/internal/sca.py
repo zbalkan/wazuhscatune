@@ -106,7 +106,7 @@ class Check:
         if __description:
             _description = str(__description)
         _id = int(obj.get("id"))
-        _impact = str(obj.get("impact"))
+        _impact = str(obj.get("impact")) if obj.get("impact") is not None else ''
         _rationale = None
         __rationale = obj.get("rationale")
         if __rationale:

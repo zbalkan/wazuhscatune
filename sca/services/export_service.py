@@ -1,53 +1,62 @@
 """Export Service - File generation logic."""
 import os
 import zipfile
-import tempfile
 import logging
+import uuid
+import shutil
+import tempfile
+import re
+from pathlib import Path
 from typing import List, Tuple
 
 from sca.internal.guide import Guide
-from sca.internal.loosening import Loosening
+from sca.internal.loosening import Tailoring
 
 
 class ExportService:
     """Service for handling file export operations."""
 
     @staticmethod
-    def generate_files(guide: Guide, loosening: Loosening,
-                      base_filename: str) -> Tuple[str, str, str, str]:
+    def generate_files(guide: Guide, tailoring: Tailoring,
+                      base_filename: str, export_root: str | None = None) -> Tuple[str, str, str, str]:
         """
-        Create custom SCA and loosening files.
+        Create a tailored SCA policy and exception records.
 
         Args:
             guide: Guide object with baseline data
-            loosening: Loosening object with decisions
+            tailoring: Tailoring object with exceptions
             base_filename: Base name for output files
 
         Returns:
-            Tuple of (custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir)
+            Paths to the policy, YAML record, Markdown record, and temporary directory.
         """
         # Create temporary directory for generated files
-        temp_dir = tempfile.mkdtemp()
+        if not re.fullmatch(r'[a-z0-9][a-z0-9_]*', base_filename):
+            raise ValueError("Invalid export filename")
+        root = Path(export_root or tempfile.gettempdir()).resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        temp_dir = str(root / str(uuid.uuid4()))
+        os.mkdir(temp_dir)
 
         # Generate file paths
         custom_sca_path = os.path.join(temp_dir, f"{base_filename}.yml")
-        loosening_yml_path = os.path.join(temp_dir, f"{base_filename}_exceptions.yml")
-        loosening_md_path = os.path.join(temp_dir, f"{base_filename}_exceptions.md")
+        exceptions_yml_path = os.path.join(temp_dir, f"{base_filename}_exceptions.yml")
+        exceptions_md_path = os.path.join(temp_dir, f"{base_filename}_exceptions.md")
 
-        # Import loosening into guide
-        guide.import_loosening(loosening=loosening)
+        try:
+            guide.import_tailoring(tailoring)
+            guide.export_custom(custom_path=custom_sca_path)
+            exceptions_yml_path, exceptions_md_path = guide.export_exceptions(
+                yml_path=exceptions_yml_path, md_path=exceptions_md_path)
+        except Exception:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
 
-        # Export custom SCA file
-        guide.export_custom(custom_path=custom_sca_path)
-
-        # Export loosening files (both YAML and Markdown)
-        loosening_yml_path, loosening_md_path = guide.export_exceptions(
-            yml_path=loosening_yml_path, md_path=loosening_md_path)
-
-        return custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir
+        return custom_sca_path, exceptions_yml_path, exceptions_md_path, temp_dir
 
     @staticmethod
-    def create_zip_archive(files: List[str], archive_name: str) -> str:
+    def create_zip_archive(files: List[str], archive_name: str,
+                           export_root: str | None = None) -> str:
         """
         Bundle files into ZIP archive.
 
@@ -58,14 +67,23 @@ class ExportService:
         Returns:
             Path to created ZIP file
         """
-        temp_dir = tempfile.mkdtemp()
+        if Path(archive_name).name != archive_name or not archive_name.endswith('.zip'):
+            raise ValueError("Invalid archive filename")
+        root = Path(export_root or tempfile.gettempdir()).resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        temp_dir = str(root / str(uuid.uuid4()))
+        os.mkdir(temp_dir)
         zip_path = os.path.join(temp_dir, archive_name)
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for file_path in files:
-                if not os.path.isfile(file_path):
-                    raise FileNotFoundError(f"Promised export artifact is missing: {file_path}")
-                zipf.write(file_path, os.path.basename(file_path))
+        try:
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in files:
+                    if not os.path.isfile(file_path):
+                        raise FileNotFoundError(f"Promised export artifact is missing: {file_path}")
+                    zipf.write(file_path, os.path.basename(file_path))
+        except Exception:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
 
         return zip_path
 
@@ -82,7 +100,6 @@ class ExportService:
                 if os.path.isfile(path):
                     os.remove(path)
                 elif os.path.isdir(path):
-                    import shutil
                     shutil.rmtree(path)
             except Exception as e:
                 logging.getLogger(__name__).warning(

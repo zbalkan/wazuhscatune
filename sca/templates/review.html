@@ -18,7 +18,9 @@
         </div>
         <p class="progress-text">
             <span id="reviewed-count">0</span> of <span id="total-count">{{ checks|length }}</span> checks reviewed
-            (<span id="excluded-count">0</span> exceptions)
+            (<span id="excluded-count">0</span> exceptions,
+            <span id="unreviewed-count">{{ stats.unreviewed }}</span> unreviewed,
+            <span id="effective-count">{{ stats.effective_included }}</span> effective checks)
         </p>
     </div>
 
@@ -151,6 +153,7 @@
 // Pass data to JavaScript
 window.checksData = {{ checks|tojson }};
 window.decisionsData = {{ decisions|tojson }};
+window.statsData = {{ stats|tojson }};
 </script>
 {% endblock %}
 
@@ -161,30 +164,10 @@ window.decisionsData = {{ decisions|tojson }};
 <script src="{{ url_for('static', filename='js/storage-manager.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== wazuhscatune Review Page Initialization ===');
-    console.log('Checks data available:', typeof window.checksData !== 'undefined');
-    console.log('Decisions data available:', typeof window.decisionsData !== 'undefined');
-    
-    if (window.checksData) {
-        console.log('Total checks:', window.checksData.length);
-        console.log('Sample check (first):', window.checksData[0]);
-    }
-    
-    if (window.decisionsData) {
-        console.log('Total decisions:', Object.keys(window.decisionsData).length);
-    }
-    
-    // Initialize managers
-    console.log('Initializing CardManager...');
-    const cardManager = new CardManager(window.checksData, window.decisionsData);
-    
-    console.log('Initializing ModalHandler...');
+    const cardManager = new CardManager(window.checksData, window.decisionsData, window.statsData);
     new ModalHandler(window.checksData, window.decisionsData, cardManager);
-    
-    console.log('Initializing FilterController...');
     new FilterController(window.checksData, cardManager);
-    
-    console.log('=== Initialization Complete ===');
+    new StorageManager();
     
     // Save draft button
     document.getElementById('save-draft-btn').addEventListener('click', function() {
