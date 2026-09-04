@@ -37,7 +37,7 @@
     
     /* Layout */
     --container-max-width: 1200px;
-    --border-radius: 8px;
+    --border-radius: 4px;
     --transition-speed: 0.2s;
 }
 
@@ -143,10 +143,10 @@ a:hover {
     padding: 0.625rem 1.25rem;
     font-size: 1rem;
     font-weight: 600;
-    border: none;
+    border: 1px solid transparent;
     border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all var(--transition-speed);
+    transition: background-color var(--transition-speed), border-color var(--transition-speed);
     text-align: center;
 }
 
@@ -157,29 +157,35 @@ a:hover {
 
 .btn-primary {
     background-color: var(--color-primary);
+    border-color: var(--color-primary);
     color: var(--color-white);
 }
 
 .btn-primary:hover:not(:disabled) {
     background-color: #1e40af;
+    border-color: #1e40af;
 }
 
 .btn-secondary {
     background-color: var(--color-secondary);
+    border-color: var(--color-secondary);
     color: var(--color-white);
 }
 
 .btn-secondary:hover:not(:disabled) {
     background-color: #4b5563;
+    border-color: #4b5563;
 }
 
 .btn-danger {
     background-color: var(--color-danger);
+    border-color: var(--color-danger);
     color: var(--color-white);
 }
 
 .btn-danger:hover:not(:disabled) {
     background-color: #dc2626;
+    border-color: #dc2626;
 }
 
 .btn-outline {
@@ -255,7 +261,7 @@ a:hover {
     background-color: var(--color-white);
     padding: var(--spacing-xl);
     border-radius: var(--border-radius);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-border);
 }
 
 .description {
@@ -348,13 +354,14 @@ a:hover {
     background-color: var(--color-white);
     padding: var(--spacing-lg);
     border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
     margin-bottom: var(--spacing-xl);
 }
 
 .progress-bar {
     height: 20px;
     background-color: var(--color-border);
-    border-radius: 10px;
+    border-radius: var(--border-radius);
     overflow: hidden;
     margin-bottom: var(--spacing-md);
 }
@@ -391,6 +398,7 @@ a:hover {
     background-color: var(--color-white);
     padding: var(--spacing-xl);
     border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
     margin-bottom: var(--spacing-xl);
 }
 
@@ -431,6 +439,7 @@ a:hover {
     background-color: var(--color-white);
     padding: var(--spacing-xl);
     border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
     margin-bottom: var(--spacing-xl);
 }
 
@@ -470,6 +479,7 @@ a:hover {
     background-color: var(--color-white);
     padding: var(--spacing-xl);
     border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
     text-align: center;
     margin-bottom: var(--spacing-xl);
 }
