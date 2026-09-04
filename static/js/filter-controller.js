@@ -11,7 +11,7 @@ class FilterController {
         this.checks = checks;
         this.cardManager = cardManager;
         this.activeFilters = {
-            status: ['included', 'excluded', 'unreviewed'],
+            status: ['accepted', 'exception', 'unreviewed'],
             searchText: '',
             impactSearchText: ''
         };
@@ -145,14 +145,14 @@ class FilterController {
         if (!decision) {
             return 'unreviewed';
         }
-        return decision.excluded ? 'excluded' : 'included';
+        return decision.decision;
     }
     
     clearFilters() {
         // Reset status filters
         const statusCheckboxes = document.querySelectorAll('input[name="status"]');
         statusCheckboxes.forEach(cb => cb.checked = true);
-        this.activeFilters.status = ['included', 'excluded', 'unreviewed'];
+        this.activeFilters.status = ['accepted', 'exception', 'unreviewed'];
         
         // Reset general search
         const searchInput = document.getElementById('search-input');

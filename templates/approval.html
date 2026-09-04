@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Approval - SCA Guide{% endblock %}
+{% block title %}Approval - wazuhscatune{% endblock %}
 
 {% block content %}
 <div class="approval-page">
@@ -13,23 +13,24 @@
         <h3>Summary</h3>
         <div class="summary-stats">
             <div class="stat-card">
-                <div class="stat-value">{{ total }}</div>
+                <div class="stat-value">{{ stats.total }}</div>
                 <div class="stat-label">Total Checks</div>
             </div>
             <div class="stat-card stat-success">
-                <div class="stat-value">{{ included }}</div>
-                <div class="stat-label">Included</div>
+                <div class="stat-value">{{ stats.accepted }}</div>
+                <div class="stat-label">Accepted</div>
             </div>
             <div class="stat-card stat-danger">
-                <div class="stat-value">{{ excluded }}</div>
-                <div class="stat-label">Excluded</div>
+                <div class="stat-value">{{ stats.exceptions }}</div>
+                <div class="stat-label">Exceptions</div>
             </div>
+            <div class="stat-card"><div class="stat-value">{{ stats.unreviewed }}</div><div class="stat-label">Unreviewed</div></div>
         </div>
     </div>
 
     {% if excluded_checks %}
     <div class="excluded-section">
-        <h3>Excluded Checks</h3>
+        <h3>Exceptions</h3>
         <div class="excluded-list">
             {% for check in excluded_checks %}
             <div class="excluded-item">
@@ -46,7 +47,7 @@
     </div>
     {% else %}
     <div class="no-exclusions">
-        <p>No checks have been excluded. All checks will be included in the custom policy.</p>
+        <p>No exceptions were recorded. Every baseline check remains in the tailored policy.</p>
     </div>
     {% endif %}
 

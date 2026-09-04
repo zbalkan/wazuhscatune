@@ -2,6 +2,7 @@
 import os
 import zipfile
 import tempfile
+import logging
 from typing import List, Tuple
 
 from internal.guide import Guide
@@ -30,8 +31,8 @@ class ExportService:
         
         # Generate file paths
         custom_sca_path = os.path.join(temp_dir, f"{base_filename}.yml")
-        loosening_yml_path = os.path.join(temp_dir, f"{base_filename}_loosening.yml")
-        loosening_md_path = os.path.join(temp_dir, f"{base_filename}_loosening.md")
+        loosening_yml_path = os.path.join(temp_dir, f"{base_filename}_exceptions.yml")
+        loosening_md_path = os.path.join(temp_dir, f"{base_filename}_exceptions.md")
         
         # Import loosening into guide
         guide.import_loosening(loosening=loosening)
@@ -40,7 +41,8 @@ class ExportService:
         guide.export_custom(custom_path=custom_sca_path)
         
         # Export loosening files (both YAML and Markdown)
-        guide.export_loosening(loosening_path=loosening_yml_path)
+        loosening_yml_path, loosening_md_path = guide.export_exceptions(
+            yml_path=loosening_yml_path, md_path=loosening_md_path)
         
         return custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir
     
@@ -61,8 +63,9 @@ class ExportService:
         
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for file_path in files:
-                if os.path.exists(file_path):
-                    zipf.write(file_path, os.path.basename(file_path))
+                if not os.path.isfile(file_path):
+                    raise FileNotFoundError(f"Promised export artifact is missing: {file_path}")
+                zipf.write(file_path, os.path.basename(file_path))
         
         return zip_path
     
@@ -82,4 +85,5 @@ class ExportService:
                     import shutil
                     shutil.rmtree(path)
             except Exception as e:
-                print(f"Error cleaning up {path}: {e}")
+                logging.getLogger(__name__).warning(
+                    "Unable to clean up export path %s", path, exc_info=True)

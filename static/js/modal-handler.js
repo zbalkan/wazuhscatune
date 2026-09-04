@@ -95,7 +95,7 @@ class ModalHandler {
             }
             
             // Get decision data from in-memory decisions
-            const decision = this.decisions[checkId] || { excluded: false, justification: '' };
+            const decision = this.decisions[checkId] || { decision: 'unreviewed' };
             
             // Populate modal
             document.getElementById('detail-id').textContent = check.id;
@@ -141,7 +141,7 @@ class ModalHandler {
             }
             
             // Set decision state
-            if (decision.excluded) {
+            if (decision.decision === 'exception') {
                 this.excludeRadio.checked = true;
                 this.justificationArea.style.display = 'block';
                 this.justificationInput.value = decision.justification || '';
@@ -225,7 +225,7 @@ class ModalHandler {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     check_id: this.currentCheckId,
-                    excluded: excluded,
+                    decision: decision,
                     justification: justification
                 })
             });
@@ -234,10 +234,11 @@ class ModalHandler {
             
             if (data.success) {
                 // Update in-memory decisions object
-                this.decisions[this.currentCheckId] = { excluded, justification };
+                const normalized = data.decision;
+                this.decisions[this.currentCheckId] = normalized;
                 
                 // Update card manager
-                this.cardManager.updateCard(this.currentCheckId, { excluded, justification });
+                this.cardManager.updateCard(this.currentCheckId, normalized);
                 showToast('Decision saved', 'success');
                 // Don't close modal - user can continue with Next button or close manually
             } else {

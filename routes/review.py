@@ -1,4 +1,5 @@
 """Review routes - Review interface and AJAX endpoints."""
+import logging
 from flask import Blueprint, render_template, request, session, jsonify, current_app, redirect, url_for
 
 from services.sca_service import SCAService
@@ -6,6 +7,7 @@ from services.session_service import SessionService
 
 
 review_bp = Blueprint('review', __name__)
+logger = logging.getLogger(__name__)
 
 
 @review_bp.route('/review')
@@ -34,8 +36,9 @@ def review_page():
                              summary=summary,
                              checks=checks,
                              decisions=decisions_int)
-    except Exception as e:
-        return jsonify({'error': f'Error loading review page: {str(e)}'}), 500
+    except Exception:
+        logger.exception("Unable to load review page")
+        return jsonify({'error': 'Unable to process SCA file.'}), 500
 
 
 @review_bp.route('/api/check/<int:check_id>')
@@ -54,12 +57,13 @@ def get_check(check_id):
         # Add decision info if exists
         decisions = session.get('decisions', {})
         check_decision = decisions.get(str(check_id), {})
-        check['excluded'] = check_decision.get('excluded', False)
+        check['decision'] = check_decision.get('decision', 'unreviewed')
         check['justification'] = check_decision.get('justification', '')
         
         return jsonify(check)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        logger.exception("Unable to load check %s", check_id)
+        return jsonify({'error': 'Unable to process SCA file.'}), 500
 
 
 @review_bp.route('/api/decision', methods=['POST'])
@@ -76,17 +80,24 @@ def save_decision():
         check_id = data.get('check_id')
         if check_id is None:
             return jsonify({'error': 'Missing required field: check_id'}), 400
-        try:
-            check_id = int(check_id)
-        except (TypeError, ValueError):
+        if type(check_id) is not int:
             return jsonify({'error': 'Field check_id must be an integer'}), 400
 
-        excluded = data.get('excluded', False)
-        justification = str(data.get('justification', '')).strip()
+        decision = data.get('decision')
+        if decision not in ('accepted', 'exception'):
+            return jsonify({'error': "Field decision must be 'accepted' or 'exception'"}), 400
+        raw_justification = data.get('justification', '')
+        if not isinstance(raw_justification, str):
+            return jsonify({'error': 'Field justification must be a string'}), 400
+        justification = raw_justification.strip()
+
+        guide = SCAService.load_baseline(session['baseline_path'])
+        if SCAService.get_check_by_id(guide, check_id) is None:
+            return jsonify({'error': 'Unknown check ID'}), 404
         
         # Validate
-        if excluded and (not justification or len(justification) < 10):
-            return jsonify({'error': 'Justification must be at least 10 characters when excluding a check'}), 400
+        if decision == 'exception' and len(justification) < 10:
+            return jsonify({'error': 'Justification must be at least 10 characters for an exception'}), 400
         
         if justification and len(justification) > 1000:
             return jsonify({'error': 'Justification must not exceed 1000 characters'}), 400
@@ -94,8 +105,8 @@ def save_decision():
         # Update session
         decisions = session.get('decisions', {})
         decisions[str(check_id)] = {
-            'excluded': excluded,
-            'justification': justification
+            'decision': decision,
+            **({'justification': justification} if decision == 'exception' else {})
         }
         session['decisions'] = decisions
         session.modified = True
@@ -110,10 +121,15 @@ def save_decision():
         )
         session_service.save_draft(session['session_id'], session_data)
         
-        return jsonify({'success': True})
+        return jsonify({
+            'success': True, 'check_id': check_id,
+            'decision': decisions[str(check_id)],
+            'stats': SCAService.calculate_stats(guide, decisions),
+        })
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        logger.exception("Unable to save review decision")
+        return jsonify({'error': 'Unable to save review state.'}), 500
 
 
 @review_bp.route('/api/save-draft', methods=['POST'])
@@ -137,8 +153,9 @@ def manual_save_draft():
         else:
             return jsonify({'error': 'Failed to save draft'}), 500
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        logger.exception("Unable to save draft")
+        return jsonify({'error': 'Unable to save review state.'}), 500
 
 
 @review_bp.route('/api/stats')
@@ -152,17 +169,8 @@ def get_stats():
         checks = SCAService.get_checks(guide)
         decisions = session.get('decisions', {})
         
-        total = len(checks)
-        excluded = sum(1 for d in decisions.values() if d.get('excluded', False))
-        included = total - excluded
-        reviewed = len(decisions)
+        return jsonify(SCAService.calculate_stats(guide, decisions))
         
-        return jsonify({
-            'total': total,
-            'included': included,
-            'excluded': excluded,
-            'reviewed': reviewed
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        logger.exception("Unable to calculate review statistics")
+        return jsonify({'error': 'Unable to process SCA file.'}), 500

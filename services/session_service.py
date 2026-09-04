@@ -1,6 +1,7 @@
 """Session Service - Session and draft management."""
 import os
 import json
+import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -38,7 +39,7 @@ class SessionService:
             
             return True
         except Exception as e:
-            print(f"Error saving draft: {e}")
+            logging.getLogger(__name__).exception("Unable to save draft %s", session_id)
             return False
     
     def load_draft(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -59,7 +60,7 @@ class SessionService:
             with open(filepath, 'r', encoding='UTF-8') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Error loading draft: {e}")
+            logging.getLogger(__name__).exception("Unable to load draft %s", session_id)
             return None
     
     def delete_draft(self, session_id: str) -> bool:
@@ -78,7 +79,7 @@ class SessionService:
                 os.remove(filepath)
             return True
         except Exception as e:
-            print(f"Error deleting draft: {e}")
+            logging.getLogger(__name__).exception("Unable to delete draft %s", session_id)
             return False
     
     def _get_draft_path(self, session_id: str) -> str:
