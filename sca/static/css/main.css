@@ -404,7 +404,7 @@ a:hover {
 
 .summary-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--spacing-lg);
 }
 
@@ -448,7 +448,7 @@ a:hover {
 }
 
 .excluded-item {
-    border-left: 4px solid var(--color-danger);
+    border: 1px solid var(--color-border);
     padding: var(--spacing-lg);
     background-color: var(--color-background);
     margin-bottom: var(--spacing-md);

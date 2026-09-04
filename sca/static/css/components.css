@@ -14,7 +14,6 @@
     padding: 1.5rem;
     cursor: pointer;
     transition: background-color var(--transition-speed), border-color var(--transition-speed);
-    border-left: 4px solid transparent;
 }
 
 .check-card:hover {
@@ -23,15 +22,15 @@
 }
 
 .check-card.excluded {
-    border-left-color: var(--color-danger);
+    border-color: var(--color-danger);
 }
 
 .check-card.included {
-    border-left-color: var(--color-success);
+    border-color: var(--color-success);
 }
 
 .check-card.modified {
-    border-left-color: var(--color-warning);
+    border-color: var(--color-warning);
 }
 
 .card-header {
@@ -334,19 +333,21 @@
     align-items: center;
     gap: var(--spacing-md);
     animation: slideIn 0.3s ease;
-    border-left: 4px solid;
 }
 
 .toast.success {
-    border-left-color: var(--color-success);
+    background-color: #ecfdf5;
+    border-color: var(--color-success);
 }
 
 .toast.error {
-    border-left-color: var(--color-danger);
+    background-color: #fef2f2;
+    border-color: var(--color-danger);
 }
 
 .toast.info {
-    border-left-color: var(--color-primary);
+    background-color: #eff6ff;
+    border-color: var(--color-primary);
 }
 
 .toast-message {
