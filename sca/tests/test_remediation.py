@@ -196,10 +196,21 @@ def test_typed_decision_normalization(decision, justification, expected):
 @pytest.mark.parametrize('decision,justification', [
     ('other', ''), ('exception', ''), ('exception', 'short'),
     ('exception', 12), ('accepted', 'x' * 1001),
+    ('exception', '!' * 20), ('exception', 'aaaaaaaaaaaa'),
+    ('exception', '..........'),
 ])
 def test_typed_decision_rejects_invalid_values(decision, justification):
     with pytest.raises(ValueError):
         ReviewDecision.create(1, decision, justification)
+
+
+def test_decision_api_rejects_meaningless_exception_justification(tmp_path):
+    client = app_with_session(tmp_path)
+    response = client.post('/api/decision', json={
+        'check_id': 1, 'decision': 'exception', 'justification': '!' * 20})
+    assert response.status_code == 400
+    with client.session_transaction() as sess:
+        assert sess['decisions'] == {}
 
 
 def test_validation_rejects_nested_optional_types(tmp_path):

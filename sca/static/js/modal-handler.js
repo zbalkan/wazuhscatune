@@ -3,6 +3,30 @@
  * Manages modal interactions and check detail viewing
  */
 
+// Mirrors the server-side check in sca/internal/review.py: rejects
+// justifications with too few distinct letters, or where a single
+// character (e.g. "!!!!!!!!!!") dominates the text. This is a UX
+// shortcut only - the server re-validates and is the source of truth.
+const MIN_DISTINCT_LETTERS = 4;
+
+function isMeaningfulJustification(text) {
+    const letters = (text.toLowerCase().match(/[^\W\d_]/gu) || []);
+    if (new Set(letters).size < MIN_DISTINCT_LETTERS) {
+        return false;
+    }
+    const stripped = text.replace(/\s+/g, '');
+    if (!stripped) {
+        return false;
+    }
+    const counts = {};
+    let mostCommonCount = 0;
+    for (const char of stripped) {
+        counts[char] = (counts[char] || 0) + 1;
+        mostCommonCount = Math.max(mostCommonCount, counts[char]);
+    }
+    return mostCommonCount / stripped.length <= 0.5;
+}
+
 class ModalHandler {
     constructor(checks, decisions, cardManager) {
         this.checks = checks;
@@ -196,7 +220,7 @@ class ModalHandler {
     validateJustification() {
         const excluded = this.excludeRadio.checked;
         const justification = this.justificationInput.value.trim();
-        
+
         if (excluded) {
             if (!justification || justification.length < 10) {
                 return 'Justification must be at least 10 characters';
@@ -204,8 +228,11 @@ class ModalHandler {
             if (justification.length > 1000) {
                 return 'Justification must not exceed 1000 characters';
             }
+            if (!isMeaningfulJustification(justification)) {
+                return 'Justification must contain meaningful text, not repeated characters';
+            }
         }
-        
+
         return null;
     }
     
