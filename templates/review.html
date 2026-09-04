@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Review - SCA Guide{% endblock %}
+{% block title %}Review - wazuhscatune{% endblock %}
 
 {% block content %}
 <div class="review-page">
@@ -18,7 +18,7 @@
         </div>
         <p class="progress-text">
             <span id="reviewed-count">0</span> of <span id="total-count">{{ checks|length }}</span> checks reviewed
-            (<span id="excluded-count">0</span> excluded)
+            (<span id="excluded-count">0</span> exceptions)
         </p>
     </div>
 
@@ -30,12 +30,12 @@
                 <label>Status</label>
                 <div class="filter-options">
                     <label class="filter-option">
-                        <input type="checkbox" name="status" value="included" checked>
-                        <span>Included</span>
+                        <input type="checkbox" name="status" value="accepted" checked>
+                        <span>Accepted</span>
                     </label>
                     <label class="filter-option">
-                        <input type="checkbox" name="status" value="excluded" checked>
-                        <span>Excluded</span>
+                        <input type="checkbox" name="status" value="exception" checked>
+                        <span>Exceptions</span>
                     </label>
                     <label class="filter-option">
                         <input type="checkbox" name="status" value="unreviewed" checked>
@@ -120,11 +120,11 @@
                     <div class="radio-group">
                         <label class="radio-option">
                             <input type="radio" name="decision" value="include" checked>
-                            <span>Include this check</span>
+                            <span>Accept this check</span>
                         </label>
                         <label class="radio-option">
                             <input type="radio" name="decision" value="exclude">
-                            <span>Exclude this check</span>
+                            <span>Record an exception</span>
                         </label>
                     </div>
 
@@ -161,7 +161,7 @@ window.decisionsData = {{ decisions|tojson }};
 <script src="{{ url_for('static', filename='js/storage-manager.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== SCA Guide Review Page Initialization ===');
+    console.log('=== wazuhscatune Review Page Initialization ===');
     console.log('Checks data available:', typeof window.checksData !== 'undefined');
     console.log('Decisions data available:', typeof window.decisionsData !== 'undefined');
     

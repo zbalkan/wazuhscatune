@@ -1,1 +1,1 @@
-"""Routes package for SCA Guide Flask application."""
+"""Routes package for the wazuhscatune Flask application."""

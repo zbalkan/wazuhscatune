@@ -48,7 +48,7 @@ class CardManager {
         // Update card styling
         card.classList.remove('included', 'excluded', 'modified');
         
-        if (decision.excluded) {
+        if (decision.decision === 'exception') {
             card.classList.add('excluded');
         } else {
             card.classList.add('included');
@@ -57,12 +57,12 @@ class CardManager {
         // Update status badge
         const statusEl = card.querySelector('.card-status');
         if (statusEl) {
-            if (decision.excluded) {
-                statusEl.textContent = 'Excluded';
-                statusEl.dataset.status = 'excluded';
+            if (decision.decision === 'exception') {
+                statusEl.textContent = 'Exception';
+                statusEl.dataset.status = 'exception';
             } else {
-                statusEl.textContent = 'Included';
-                statusEl.dataset.status = 'included';
+                statusEl.textContent = 'Accepted';
+                statusEl.dataset.status = 'accepted';
             }
         }
         
@@ -99,7 +99,7 @@ class CardManager {
         
         const total = this.checks.length;
         const reviewed = Object.keys(this.decisions).length;
-        const excluded = Object.values(this.decisions).filter(d => d.excluded).length;
+        const excluded = Object.values(this.decisions).filter(d => d.decision === 'exception').length;
         
         if (totalEl) totalEl.textContent = total;
         if (reviewedEl) reviewedEl.textContent = reviewed;

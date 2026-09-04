@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Flask application entry point for SCA Guide."""
+"""Flask application entry point for wazuhscatune."""
 import os
 
 from flask import Flask, render_template

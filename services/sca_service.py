@@ -31,18 +31,33 @@ class SCAService:
             with open(filepath, 'r', encoding='UTF-8') as f:
                 data = yaml.load(f)
 
-            # Check required sections
             if not isinstance(data, dict):
-                return False, "Invalid YAML format: root must be a dictionary"
+                return False, "Invalid YAML format: root must be a mapping"
 
             if 'policy' not in data:
                 return False, "Missing 'policy' section"
 
             policy = data['policy']
+            if not isinstance(policy, dict):
+                return False, "'policy' must be a mapping"
             required_policy_fields = ['name', 'id', 'description', 'file']
             for field in required_policy_fields:
-                if field not in policy:
+                if field not in policy or not isinstance(policy[field], str) or not policy[field].strip():
                     return False, f"Missing required field in policy: {field}"
+
+            if 'references' in policy and not isinstance(policy['references'], list):
+                return False, "Optional field 'policy.references' must be an array"
+            if 'regex_type' in policy and not isinstance(policy['regex_type'], str):
+                return False, "Optional field 'policy.regex_type' must be a string"
+
+            requirements = data.get('requirements')
+            if not isinstance(requirements, dict):
+                return False, "Missing or invalid 'requirements' section: expected a mapping"
+            for field in ('title', 'description', 'condition'):
+                if field not in requirements or not isinstance(requirements[field], str) or not requirements[field].strip():
+                    return False, f"Missing required field in requirements: {field}"
+            if 'rules' in requirements and not isinstance(requirements['rules'], list):
+                return False, "Optional field 'requirements.rules' must be an array"
 
             if 'checks' not in data:
                 return False, "Missing 'checks' section"
@@ -53,10 +68,38 @@ class SCAService:
             if len(data['checks']) == 0:
                 return False, "At least one check is required"
 
+            ids = set()
+            for index, check in enumerate(data['checks']):
+                location = f"checks[{index}]"
+                if not isinstance(check, dict):
+                    return False, f"{location} must be a mapping"
+                check_id = check.get('id')
+                # bool is an int subclass, but is never a valid check identifier.
+                if type(check_id) is not int:
+                    return False, f"{location}.id must be an integer"
+                if check_id in ids:
+                    return False, f"Duplicate check ID: {check_id}"
+                ids.add(check_id)
+                title = check.get('title')
+                if not isinstance(title, str) or not title.strip():
+                    return False, f"Check {check_id}: title must be a non-empty string"
+                condition = check.get('condition')
+                if not isinstance(condition, (str, int, float, bool)):
+                    return False, f"Check {check_id}: condition must be a scalar value"
+                for field in ('rules', 'references', 'compliance'):
+                    if field in check and not isinstance(check[field], list):
+                        return False, f"Check {check_id}: {field} must be an array"
+
+            if 'variables' in data and not isinstance(data['variables'], dict):
+                return False, "Optional field 'variables' must be a mapping"
+
+            # Keep validation and parsing in lockstep: accepted input must load.
+            SCA.from_dict(data)
+
             return True, None
 
-        except Exception as e:
-            return False, f"Error parsing YAML: {str(e)}"
+        except Exception:
+            return False, "Unable to parse the YAML file"
 
     @staticmethod
     def load_baseline(filepath: str) -> Guide:
@@ -154,6 +197,31 @@ class SCAService:
             if check['id'] == check_id:
                 return check
         return None
+
+    @staticmethod
+    def calculate_stats(guide: Guide, decisions: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate review statistics using only checks in the active baseline."""
+        baseline_ids = {check['id'] for check in SCAService.get_checks(guide)}
+        accepted = exceptions = 0
+        for raw_id, value in decisions.items():
+            try:
+                check_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if check_id not in baseline_ids or not isinstance(value, dict):
+                continue
+            if value.get('decision') == 'accepted':
+                accepted += 1
+            elif value.get('decision') == 'exception':
+                exceptions += 1
+        total = len(baseline_ids)
+        reviewed = accepted + exceptions
+        return {
+            'total': total, 'unreviewed': total - reviewed,
+            'accepted': accepted, 'exceptions': exceptions,
+            'effective_included': total - exceptions, 'reviewed': reviewed,
+            'review_completion': (reviewed / total * 100) if total else 0,
+        }
 
     @staticmethod
     def create_loosening(name: str, custom_id: str, description: str) -> Loosening:

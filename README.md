@@ -1,10 +1,10 @@
 # wazuhscatune
 
-A helper for Wazuh Security Configuration Assessment (SCA) to create a custom SCA based on loosening.
+A baseline-tailoring tool for Wazuh Security Configuration Assessment (SCA).
 
 ## Overview
 
-SCA Guide is available in two interfaces:
+wazuhscatune provides a web interface for reviewing a trusted baseline, retaining its checks by default, and removing checks only as documented exceptions.
 
 1. **Web Application** - Modern, user-friendly web interface with card-based UI
 2. **CLI Application** - Terminal-based interface for automation and scripting
@@ -53,15 +53,15 @@ The web application will be available at `http://localhost:5000`
 - **Progress Tracking**: Visual progress indicator showing reviewed and excluded checks
 - **Auto-Save**: Automatic draft saving every 30 seconds plus manual save option
 - **Session Management**: Persistent sessions with 24-hour timeout
-- **Export to ZIP**: Download custom SCA policy, loosening YAML, and loosening Markdown in a single ZIP file
+- **Export to ZIP**: Download a tailored SCA policy plus YAML and Markdown exception records with baseline provenance and SHA-256
 
 ### Web Application Workflow
 
 1. **Upload**: Upload a baseline SCA YAML file and provide custom policy name and description
 2. **Review**: Review each check in the card grid, click to view details in modal
-3. **Decide**: For each check, choose to include or exclude with justification (required for exclusions)
-4. **Approve**: Review summary statistics and all excluded checks with justifications
-5. **Export**: Download ZIP file containing custom SCA policy and loosening documentation
+3. **Decide**: Explicitly accept a check or record an exception with justification
+4. **Approve**: Review accepted, unreviewed, and exception counts and all justifications
+5. **Export**: Download the tailored policy and separate exception records
 
 ### Screenshots
 

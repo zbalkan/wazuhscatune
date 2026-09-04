@@ -109,7 +109,7 @@ class Check:
         _impact = str(obj.get("impact"))
         _rationale = None
         __rationale = obj.get("rationale")
-        if _rationale:
+        if __rationale:
             _rationale = str(__rationale)
         _references = None
         __references = obj.get("references")
