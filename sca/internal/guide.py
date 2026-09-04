@@ -99,7 +99,7 @@ class Guide:
                      f"(`{escape_markdown_cell(sca.policy.id)}`)  \nSHA-256: `{digest}`\n\n")
             fs.write("## Exceptions\n\n")
             fs.write("| Check ID | Check Name | Justification |\n")
-            fs.write("|---|---|---|\n")
+            fs.write("| --- | --- | --- |\n")
             for c_id, c in self.__tailoring__.decisions.items():
                 fs.write(
                     f"| {c_id} | {escape_markdown_cell(c.exception_check.title)} | "
