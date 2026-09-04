@@ -1,0 +1,1 @@
+"""wazuhscatune application package."""

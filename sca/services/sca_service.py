@@ -1,12 +1,14 @@
 """SCA Service - Business logic for SCA operations."""
 import os
+import re
 from typing import Any, Dict, Optional
 
 from ruamel.yaml import YAML
 
 from sca.internal.guide import Guide
-from sca.internal.loosening import Decision, Loosening
+from sca.internal.loosening import Tailoring, TailoringException
 from sca.internal.sca import SCA, Check
+from sca.internal.review import DecisionType, normalize_decisions
 
 
 class SCAService:
@@ -44,6 +46,8 @@ class SCAService:
             for field in required_policy_fields:
                 if field not in policy or not isinstance(policy[field], str) or not policy[field].strip():
                     return False, f"Missing required field in policy: {field}"
+            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', policy['id']):
+                return False, "policy.id contains unsupported characters"
 
             if 'references' in policy and not isinstance(policy['references'], list):
                 return False, "Optional field 'policy.references' must be an array"
@@ -58,6 +62,9 @@ class SCAService:
                     return False, f"Missing required field in requirements: {field}"
             if 'rules' in requirements and not isinstance(requirements['rules'], list):
                 return False, "Optional field 'requirements.rules' must be an array"
+            if 'rules' in requirements and not all(isinstance(v, str) and v.strip()
+                                                   for v in requirements['rules']):
+                return False, "requirements.rules entries must be non-empty strings"
 
             if 'checks' not in data:
                 return False, "Missing 'checks' section"
@@ -69,6 +76,11 @@ class SCAService:
                 return False, "At least one check is required"
 
             ids = set()
+            compliance_fields = {
+                'cis', 'cis_csc_v8', 'cis_csc_v7', 'nist_sp_800-53',
+                'iso_27001-2013', 'cmmc_v2_0', 'pci_dss_v3_2_1',
+                'pci_dss_v4_0', 'soc_2', 'mitre_techniques',
+                'mitre_tactics', 'mitre_mitigations', 'hipaa'}
             for index, check in enumerate(data['checks']):
                 location = f"checks[{index}]"
                 if not isinstance(check, dict):
@@ -89,6 +101,27 @@ class SCAService:
                 for field in ('rules', 'references', 'compliance'):
                     if field in check and not isinstance(check[field], list):
                         return False, f"Check {check_id}: {field} must be an array"
+                for field in ('description', 'rationale', 'remediation', 'impact', 'regex_type'):
+                    if field in check and not isinstance(check[field], str):
+                        return False, f"Check {check_id}: {field} must be a string"
+                for field in ('rules', 'references'):
+                    if field in check and not all(isinstance(v, str) and v.strip()
+                                                  for v in check[field]):
+                        return False, f"Check {check_id}: {field} entries must be non-empty strings"
+                if 'rules' in check and not check['rules']:
+                    return False, f"Check {check_id}: rules must not be empty"
+                for comp_index, compliance in enumerate(check.get('compliance', [])):
+                    if not isinstance(compliance, dict):
+                        return False, f"Check {check_id}: compliance[{comp_index}] must be a mapping"
+                    for key, values in compliance.items():
+                        if key not in compliance_fields:
+                            return False, (f"Check {check_id}: compliance[{comp_index}].{key} "
+                                           "is not supported")
+                        if not isinstance(values, list) or not all(
+                                isinstance(v, (str, int, float)) and not isinstance(v, bool)
+                                for v in values):
+                            return False, (f"Check {check_id}: compliance[{comp_index}].{key} "
+                                           "must be an array of scalar identifiers")
 
             if 'variables' in data and not isinstance(data['variables'], dict):
                 return False, "Optional field 'variables' must be a mapping"
@@ -125,7 +158,7 @@ class SCAService:
         Returns:
             Dictionary with policy info and statistics
         """
-        sca = SCA.from_dict(guide.__sca_yml__)
+        sca = guide.sca
 
         return {
             'policy_name': sca.policy.name,
@@ -146,7 +179,7 @@ class SCAService:
         Returns:
             List of check dictionaries
         """
-        sca = SCA.from_dict(guide.__sca_yml__)
+        sca = guide.sca
         checks = []
 
         for check in sca.checks:
@@ -192,28 +225,25 @@ class SCAService:
         Returns:
             Check dictionary or None if not found
         """
-        checks = SCAService.get_checks(guide)
-        for check in checks:
-            if check['id'] == check_id:
-                return check
+        for check in guide.sca.checks:
+            if check.id == check_id:
+                return {
+                    'id': check.id, 'title': check.title,
+                    'description': check.description or '',
+                    'rationale': check.rationale or '',
+                    'remediation': check.remediation or '',
+                    'impact': check.impact, 'condition': check.condition,
+                    'compliance': SCAService._serialize_compliance(check.compliance)
+                    if check.compliance else []}
         return None
 
     @staticmethod
     def calculate_stats(guide: Guide, decisions: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate review statistics using only checks in the active baseline."""
         baseline_ids = {check['id'] for check in SCAService.get_checks(guide)}
-        accepted = exceptions = 0
-        for raw_id, value in decisions.items():
-            try:
-                check_id = int(raw_id)
-            except (TypeError, ValueError):
-                continue
-            if check_id not in baseline_ids or not isinstance(value, dict):
-                continue
-            if value.get('decision') == 'accepted':
-                accepted += 1
-            elif value.get('decision') == 'exception':
-                exceptions += 1
+        normalized = normalize_decisions(decisions, baseline_ids)
+        accepted = sum(d.decision is DecisionType.ACCEPTED for d in normalized.values())
+        exceptions = sum(d.decision is DecisionType.EXCEPTION for d in normalized.values())
         total = len(baseline_ids)
         reviewed = accepted + exceptions
         return {
@@ -224,9 +254,8 @@ class SCAService:
         }
 
     @staticmethod
-    def create_loosening(name: str, custom_id: str, description: str) -> Loosening:
-        """
-        Create new Loosening object.
+    def create_tailoring(name: str, custom_id: str, description: str) -> Tailoring:
+        """Create a new tailoring record.
 
         Args:
             name: Custom policy name
@@ -234,39 +263,43 @@ class SCAService:
             description: Custom policy description
 
         Returns:
-            Loosening object
+            Tailoring object
         """
-        return Loosening(
+        return Tailoring(
             name=name,
             id=custom_id,
             description=description,
             decisions={}
         )
 
+    create_loosening = create_tailoring
+
     @staticmethod
-    def add_decision(loosening: Loosening, check: Check, justification: str) -> None:
-        """
-        Add exclusion decision to loosening.
+    def add_exception(tailoring: Tailoring, check: Check, justification: str) -> None:
+        """Add a documented exception to a tailoring record.
 
         Args:
-            loosening: Loosening object
+            tailoring: Tailoring object
             check: Check object to exclude
             justification: Justification for exclusion
         """
-        decision = Decision(
+        decision = TailoringException(
             justification=justification,
-            suppressed_check=check
+            exception_check=check
         )
-        loosening.decisions[check.id] = decision
+        tailoring.decisions[check.id] = decision
+
+    add_decision = add_exception
 
     @staticmethod
-    def remove_decision(loosening: Loosening, check_id: int) -> None:
-        """
-        Remove exclusion decision from loosening.
+    def remove_exception(tailoring: Tailoring, check_id: int) -> None:
+        """Remove an exception from a tailoring record.
 
         Args:
-            loosening: Loosening object
+            tailoring: Tailoring object
             check_id: Check ID to remove
         """
-        if check_id in loosening.decisions:
-            del loosening.decisions[check_id]
+        if check_id in tailoring.decisions:
+            del tailoring.decisions[check_id]
+
+    remove_decision = remove_exception

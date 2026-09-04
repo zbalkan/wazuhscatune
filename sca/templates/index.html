@@ -4,6 +4,16 @@
 
 {% block content %}
 <div class="upload-page">
+    {% if drafts %}
+    <div class="upload-container">
+        <h2>Recover a draft</h2>
+        <ul>
+            {% for draft in drafts %}
+            <li><a href="{{ url_for('upload.recover_draft', session_id=draft.session_id) }}">{{ draft.custom_name }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
     <div class="upload-container">
         <h2>Upload Baseline SCA File</h2>
         <p class="description">Upload a Wazuh SCA baseline to create a tailored policy with documented exceptions.</p>

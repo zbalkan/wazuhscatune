@@ -217,6 +217,7 @@ class ModalHandler {
         }
         
         const excluded = this.excludeRadio.checked;
+        const decision = excluded ? 'exception' : 'accepted';
         const justification = this.justificationInput.value.trim();
         
         try {
@@ -239,6 +240,7 @@ class ModalHandler {
                 
                 // Update card manager
                 this.cardManager.updateCard(this.currentCheckId, normalized);
+                this.cardManager.applyStats(data.stats);
                 showToast('Decision saved', 'success');
                 // Don't close modal - user can continue with Next button or close manually
             } else {

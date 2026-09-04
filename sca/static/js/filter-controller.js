@@ -5,8 +5,6 @@
 
 class FilterController {
     constructor(checks, cardManager) {
-        console.log('[FilterController] Initializing...');
-        console.log('[FilterController] Checks count:', checks.length);
         
         this.checks = checks;
         this.cardManager = cardManager;
@@ -16,7 +14,6 @@ class FilterController {
             impactSearchText: ''
         };
         
-        console.log('[FilterController] Initial filters:', this.activeFilters);
         
         this.initializeEventListeners();
         this.applyFilters();
@@ -77,29 +74,19 @@ class FilterController {
     }
     
     applyFilters() {
-        console.log('[FilterController] Applying filters...');
-        console.log('[FilterController] Active filters:', this.activeFilters);
-        console.log('[FilterController] Total checks:', this.checks.length);
         
         const filteredChecks = this.getFilteredChecks();
         const filteredIds = filteredChecks.map(c => c.id);
         
-        console.log('[FilterController] Filtered checks count:', filteredChecks.length);
-        console.log('[FilterController] Filtered check IDs:', filteredIds);
         
         this.cardManager.filterCards(filteredIds);
     }
     
     getFilteredChecks() {
-        let statusFiltered = 0;
-        let impactSearchFiltered = 0;
-        let searchFiltered = 0;
-        
         const result = this.checks.filter(check => {
             // Status filter
             const checkStatus = this.getCheckStatus(check.id);
             if (!this.activeFilters.status.includes(checkStatus)) {
-                statusFiltered++;
                 return false;
             }
             
@@ -107,7 +94,6 @@ class FilterController {
             if (this.activeFilters.impactSearchText) {
                 const checkImpact = (check.impact || '').toLowerCase();
                 if (!checkImpact.includes(this.activeFilters.impactSearchText)) {
-                    impactSearchFiltered++;
                     return false;
                 }
             }
@@ -123,19 +109,12 @@ class FilterController {
                 ].join(' ').toLowerCase();
                 
                 if (!searchableText.includes(this.activeFilters.searchText)) {
-                    searchFiltered++;
                     return false;
                 }
             }
             
             return true;
         });
-        
-        console.log('[FilterController] Filter results:');
-        console.log(`  - Filtered by status: ${statusFiltered}`);
-        console.log(`  - Filtered by impact search: ${impactSearchFiltered}`);
-        console.log(`  - Filtered by general search: ${searchFiltered}`);
-        console.log(`  - Passed filters: ${result.length}`);
         
         return result;
     }
