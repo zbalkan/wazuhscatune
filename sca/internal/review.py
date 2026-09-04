@@ -1,7 +1,30 @@
 """Typed reviewer decisions and strict session serialization."""
+import re
+from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
+
+# At least this many distinct letters must appear in a justification. Blocks
+# "!!!!!!!!!!", "aaaaaaaaaa", "..........", and similar keyboard-mashing that
+# happens to clear the length check but carries no auditable reasoning.
+_MIN_DISTINCT_LETTERS = 4
+_LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+
+
+def _is_meaningful(text: str) -> bool:
+    """Reject justifications with no real content: repeated characters,
+    punctuation-only spam, or too few distinct letters to read as a reason."""
+    letters = _LETTER_RE.findall(text.lower())
+    if len(set(letters)) < _MIN_DISTINCT_LETTERS:
+        return False
+    # A single character dominating the text (ignoring whitespace) is a sign
+    # of spam even when enough distinct letters technically appear elsewhere.
+    stripped = re.sub(r"\s+", "", text)
+    if not stripped:
+        return False
+    most_common_count = Counter(stripped).most_common(1)[0][1]
+    return most_common_count / len(stripped) <= 0.5
 
 
 class DecisionType(str, Enum):
@@ -27,8 +50,12 @@ class ReviewDecision:
         if not isinstance(justification, str):
             raise ValueError("Field justification must be a string")
         text = justification.strip()
-        if kind is DecisionType.EXCEPTION and len(text) < 10:
-            raise ValueError("Justification must be at least 10 characters for an exception")
+        if kind is DecisionType.EXCEPTION:
+            if len(text) < 10:
+                raise ValueError("Justification must be at least 10 characters for an exception")
+            if not _is_meaningful(text):
+                raise ValueError(
+                    "Justification must contain meaningful text, not repeated characters")
         if len(text) > 1000:
             raise ValueError("Justification must not exceed 1000 characters")
         return cls(check_id, kind, text if kind is DecisionType.EXCEPTION else None)
