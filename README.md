@@ -1,10 +1,11 @@
-# sca_guide
+# wazuhscatune
 
 A helper for Wazuh Security Configuration Assessment (SCA) to create a custom SCA based on loosening.
 
 ## Overview
 
 SCA Guide is available in two interfaces:
+
 1. **Web Application** - Modern, user-friendly web interface with card-based UI
 2. **CLI Application** - Terminal-based interface for automation and scripting
 
@@ -91,9 +92,9 @@ The web application can be configured using environment variables:
 ### Usage
 
 ```bash
-usage: sca_guide.py [-h] --baseline BASELINE --custom CUSTOM --loosening LOOSENING
+usage: wazuhscatune.py [-h] --baseline BASELINE --custom CUSTOM --loosening LOOSENING
 
-sca_guide (0.1) is a helper for Wazuh Security Configuration Assessment (SCA) to create a custom SCA based on
+wazuhscatune (0.1) is a helper for Wazuh Security Configuration Assessment (SCA) to create a custom SCA based on
 loosening.
 
 options:
@@ -109,7 +110,7 @@ options:
 ### Sample CLI Usage
 
 ```bash
-python sca_guide.py -b data/windows/cis_win2022.yml -c custom_win2022.yml -l loosening_win2022.yml
+python wazuhscatune.py -b data/windows/cis_win2022.yml -c custom_win2022.yml -l loosening_win2022.yml
 ```
 
 The CLI application will guide you through each check interactively in the terminal.

@@ -31,5 +31,5 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
 
     # Application info
-    APP_NAME = 'sca_guide'
+    APP_NAME = 'wazuhscatune'
     APP_VERSION = '0.1'
