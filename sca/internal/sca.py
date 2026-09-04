@@ -46,15 +46,15 @@ class Compliance:
         if __iso_27001_2013:
             _iso_27001_2013 = list(__iso_27001_2013)
         _cmmc_v2_0 = None
-        __cmmc_v2_0 = obj.get("cmmc_v2_0")
+        __cmmc_v2_0 = obj.get("cmmc_v2.0")
         if __cmmc_v2_0:
             _cmmc_v2_0 = list(__cmmc_v2_0)
         _pci_dss_v3_2_1 = None
-        __pci_dss_v3_2_1 = obj.get("pci_dss_v3_2_1")
+        __pci_dss_v3_2_1 = obj.get("pci_dss_v3.2.1")
         if __pci_dss_v3_2_1:
             _pci_dss_v3_2_1 = list(__pci_dss_v3_2_1)
         _pci_dss_v4_0 = None
-        __pci_dss_v4_0 = obj.get("pci_dss_v4_0")
+        __pci_dss_v4_0 = obj.get("pci_dss_v4.0")
         if __pci_dss_v4_0:
             _pci_dss_v4_0 = list(__pci_dss_v4_0)
         _soc_2 = None

@@ -78,8 +78,8 @@ class SCAService:
             ids = set()
             compliance_fields = {
                 'cis', 'cis_csc_v8', 'cis_csc_v7', 'nist_sp_800-53',
-                'iso_27001-2013', 'cmmc_v2_0', 'pci_dss_v3_2_1',
-                'pci_dss_v4_0', 'soc_2', 'mitre_techniques',
+                'iso_27001-2013', 'cmmc_v2.0', 'pci_dss_v3.2.1',
+                'pci_dss_v4.0', 'soc_2', 'mitre_techniques',
                 'mitre_tactics', 'mitre_mitigations', 'hipaa'}
             for index, check in enumerate(data['checks']):
                 location = f"checks[{index}]"
