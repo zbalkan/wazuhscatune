@@ -94,6 +94,29 @@ def app_with_session(tmp_path):
     return client
 
 
+def test_validation_accepts_dotted_compliance_keys(tmp_path):
+    # Real Wazuh SCA files use dotted keys (cmmc_v2.0, pci_dss_v3.2.1,
+    # pci_dss_v4.0), not underscored ones - see
+    # https://github.com/wazuh/wazuh/blob/main/ruleset/sca (CIS policies).
+    data = baseline()
+    data['checks'][0]['compliance'] = [
+        {'cmmc_v2.0': ['AC.L1-3.1.1']},
+        {'pci_dss_v3.2.1': ['7.1']},
+        {'pci_dss_v4.0': ['7.1']},
+    ]
+    path = tmp_path / 'base.yml'
+    write_yaml(path, data)
+    valid, message = SCAService.validate_sca_file(str(path))
+    assert (valid, message) == (True, None)
+
+    guide = Guide(str(path))
+    checks = SCAService.get_checks(guide)
+    compliance = checks[0]['compliance']
+    assert compliance[0] == {'cmmc_v2_0': ['AC.L1-3.1.1']}
+    assert compliance[1] == {'pci_dss_v3_2_1': ['7.1']}
+    assert compliance[2] == {'pci_dss_v4_0': ['7.1']}
+
+
 def test_decision_api_validation_and_normalized_stats(tmp_path):
     client = app_with_session(tmp_path)
     invalid = [None, {}, {'check_id': '1', 'decision': 'accepted'},
