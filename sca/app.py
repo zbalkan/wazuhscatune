@@ -2,6 +2,8 @@
 
 """Flask application entry point for wazuhscatune."""
 import os
+import webbrowser
+from threading import Timer
 
 from flask import Flask, render_template
 from flask_session import Session
@@ -50,12 +52,28 @@ def create_app(config_class=Config) -> Flask:
     return app
 
 
+def _open_browser(url: str) -> None:
+    """Open the app's URL in the user's default browser, if one is available."""
+    try:
+        if webbrowser.get().name != 'gio':
+            webbrowser.open_new(url)
+    except webbrowser.Error:
+        pass
+    print(f"Access the app over {url}")
+
+
 def main() -> None:
     """Run the local web application."""
     app = create_app()
     is_development = os.environ.get('FLASK_ENV') == 'development'
-    app.run(debug=is_development,
-            host='0.0.0.0' if is_development else '127.0.0.1', port=5000)
+    host = '0.0.0.0' if is_development else '127.0.0.1'
+    port = 5000
+
+    # Avoid opening a second browser tab when the reloader respawns the process.
+    if not is_development or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        Timer(1, _open_browser, args=(f'http://127.0.0.1:{port}/',)).start()
+
+    app.run(debug=is_development, host=host, port=port)
 
 
 if __name__ == '__main__':
