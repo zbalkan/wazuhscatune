@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any, Literal
 
@@ -28,6 +29,43 @@ def sanitize_policy_name(name: str) -> str:
     return re.sub(r'^_+|_+$', '', sanitized)
 
 
+def _save_uploaded_policy(file: FileStorage, session_id: str) -> str:
+    filename = secure_filename(file.filename or '')
+    upload_root = current_app.config['UPLOAD_FOLDER']
+    if not filename.lower().endswith('.zip'):
+        path = os.path.join(upload_root, f'{session_id}_{filename}')
+        file.save(path)
+        return path
+
+    try:
+        with zipfile.ZipFile(file.stream) as archive:
+            policies = [
+                item for item in archive.infolist()
+                if not item.is_dir()
+                and Path(item.filename).suffix.lower() in {'.yml', '.yaml'}
+                and not Path(item.filename).name.lower().endswith(('_exceptions.yml', '_exceptions.yaml'))
+            ]
+            if len(policies) != 1:
+                raise ValueError('ZIP must contain exactly one policy YAML file')
+
+            policy = policies[0]
+            max_size = current_app.config['MAX_CONTENT_LENGTH']
+            if policy.file_size > max_size:
+                raise ValueError('Policy YAML in ZIP exceeds the maximum upload size')
+
+            member_name = secure_filename(Path(policy.filename).name)
+            path = os.path.join(upload_root, f'{session_id}_{member_name}')
+            with archive.open(policy) as source:
+                data = source.read(max_size + 1)
+            if len(data) > max_size:
+                raise ValueError('Policy YAML in ZIP exceeds the maximum upload size')
+            with open(path, 'wb') as destination:
+                destination.write(data)
+            return path
+    except zipfile.BadZipFile as error:
+        raise ValueError('Invalid ZIP archive') from error
+
+
 @upload_bp.route('/')
 def index() -> str:
     drafts: list[dict[str, Any]] = SessionService(current_app.config['DRAFT_FOLDER']).list_drafts()
@@ -44,7 +82,7 @@ def upload_file() -> tuple[Response, Literal[400]] | Response | tuple[Response, 
         if not file.filename:
             return jsonify({'error': 'No file selected'}), 400
         if not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file type. Only .yml and .yaml files are allowed'}), 400
+            return jsonify({'error': 'Invalid file type. Use .yml, .yaml, or an exported .zip file'}), 400
 
         custom_name = request.form.get('custom_name', '').strip()
         custom_description = request.form.get('custom_description', '').strip()
@@ -54,10 +92,12 @@ def upload_file() -> tuple[Response, Literal[400]] | Response | tuple[Response, 
             return jsonify({'error': 'Policy description must be between 50 and 500 characters'}), 400
 
         session_id = str(uuid.uuid4())
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{session_id}_{filename}")
         try:
-            file.save(filepath)
+            filepath = _save_uploaded_policy(file, session_id)
+        except ValueError as error:
+            return jsonify({'error': str(error)}), 400
+
+        try:
             is_valid, error_msg = validate_sca_file(filepath)
             if not is_valid:
                 os.remove(filepath)

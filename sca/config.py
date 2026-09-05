@@ -42,7 +42,7 @@ class Config:
     LOG_FOLDER = str(DATA_ROOT / 'logs')
 
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
-    ALLOWED_EXTENSIONS = {'yml', 'yaml'}
+    ALLOWED_EXTENSIONS = {'yml', 'yaml', 'zip'}
     SESSION_TYPE = 'filesystem'
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
     FILE_TTL_HOURS = int(os.environ.get('WAZUHSCATUNE_FILE_TTL_HOURS', '48'))
