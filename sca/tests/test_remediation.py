@@ -75,7 +75,6 @@ def test_decision_api_validation_and_normalized_stats(tmp_path):
     invalid = [
         None,
         {},
-        {'check_id': '1', 'decision': 'accepted'},
         {'check_id': 1, 'decision': 'invalid'},
         {'check_id': 1, 'decision': 'exception', 'justification': 'short'},
     ]
@@ -93,6 +92,14 @@ def test_decision_api_validation_and_normalized_stats(tmp_path):
         '/api/decision',
         json={'check_id': -1, 'decision': 'accepted'},
     ).status_code == 404
+    response = client.post(
+        '/api/decision',
+        json={'check_id': '1', 'decision': 'accepted'},
+    )
+    assert response.status_code == 200
+    assert response.json['check_id'] == '1'
+    with client.session_transaction() as sess:
+        assert sess['decisions']['1'] == {'decision': 'accepted'}
     response = client.post(
         '/api/decision',
         json={
