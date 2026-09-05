@@ -13,8 +13,8 @@ The review model distinguishes:
 
 ## Alpha compatibility contract
 
-Version `0.1.0` is the first public alpha. **Python 3.10 is the minimum supported
-Python version.** Python 3.10, 3.11, 3.12, and 3.13 are tested on current Windows,
+Version `0.1.0` is the first public alpha. **Python 3.11 is the minimum supported
+Python version.** Python 3.11, 3.12, and 3.13 are tested on current Windows,
 macOS, and Linux desktop environments. The minimum version is enforced by package
 metadata and exercised by CI and release packaging. Support is revisited only when
 a dependency, Python lifecycle change, or concrete user need requires it; versions
@@ -31,7 +31,7 @@ as a public API.
 
 ## Installation
 
-Install from the repository with Python 3.10 or newer:
+Install from the repository with Python 3.11 or newer:
 
 ```bash
 python -m pip install .
@@ -126,7 +126,7 @@ the terminal instead.
 
 ## Development
 
-Python 3.10 is the compatibility floor. New code must remain valid on Python 3.10,
+Python 3.11 is the compatibility floor. New code must remain valid on Python 3.11,
 and CI tests the supported Python range before release artifacts are published.
 
 Run the canonical checks with:
