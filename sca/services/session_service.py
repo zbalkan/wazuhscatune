@@ -5,16 +5,16 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-logger = logging.getLogger(__name__)
-SESSION_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.I)
+logger: logging.Logger = logging.getLogger(__name__)
+SESSION_ID: re.Pattern[str] = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.I)
 
 
 def contained_path(root: str, name: str) -> Path:
     """Return a path below root or reject traversal and absolute paths."""
-    base = Path(root).resolve()
-    candidate = (base / name).resolve()
+    base: Path = Path(root).resolve()
+    candidate: Path = (base / name).resolve()
     if candidate == base or base not in candidate.parents:
         raise ValueError("Path is outside the configured application directory")
     return candidate
@@ -22,15 +22,15 @@ def contained_path(root: str, name: str) -> Path:
 
 def validate_contained(root: str, path: str) -> Path:
     """Validate an existing absolute or relative path is beneath root."""
-    base = Path(root).resolve()
-    candidate = Path(path).resolve()
+    base: Path = Path(root).resolve()
+    candidate: Path = Path(path).resolve()
     if base not in candidate.parents:
         raise ValueError("Path is outside the configured application directory")
     return candidate
 
 
 class SessionService:
-    def __init__(self, draft_folder: str):
+    def __init__(self, draft_folder: str) -> None:
         self.draft_folder = str(Path(draft_folder).resolve())
         os.makedirs(self.draft_folder, exist_ok=True)
 
@@ -46,7 +46,7 @@ class SessionService:
 
     def save_draft(self, session_id: str, data: dict[str, Any]) -> bool:
         try:
-            payload = dict(data)
+            payload: dict[str, Any] = dict(data)
             payload['last_saved'] = time.time()
             with self._get_draft_path(session_id).open('w', encoding='utf-8') as stream:
                 json.dump(payload, stream, indent=2, ensure_ascii=False)
@@ -55,9 +55,9 @@ class SessionService:
             logger.exception("Unable to save draft %s", session_id)
             return False
 
-    def load_draft(self, session_id: str) -> Optional[dict[str, Any]]:
+    def load_draft(self, session_id: str) -> dict[str, Any] | None:
         try:
-            path = self._get_draft_path(session_id)
+            path: Path = self._get_draft_path(session_id)
             if not path.is_file():
                 return None
             with path.open(encoding='utf-8') as stream:
@@ -77,12 +77,12 @@ class SessionService:
 
     def list_drafts(self) -> list[dict[str, Any]]:
         """Return safe metadata for recoverable drafts, newest first."""
-        drafts = []
+        drafts: list[dict[str, Any]] = []
         for path in Path(self.draft_folder).glob('*.json'):
             session_id = path.stem
             if not SESSION_ID.fullmatch(session_id):
                 continue
-            data = self.load_draft(session_id)
+            data: dict[str, Any] | None = self.load_draft(session_id)
             if data and isinstance(data.get('custom_name'), str):
                 saved = data.get('last_saved', 0)
                 if not isinstance(saved, (int, float)):
@@ -102,9 +102,9 @@ class SessionService:
 
     @staticmethod
     def cleanup_expired(roots: list[str], ttl_hours: int) -> None:
-        cutoff = time.time() - max(ttl_hours, 1) * 3600
+        cutoff: float = time.time() - max(ttl_hours, 1) * 3600
         for root_name in roots:
-            root = Path(root_name).resolve()
+            root: Path = Path(root_name).resolve()
             if not root.is_dir():
                 continue
             for path in root.iterdir():

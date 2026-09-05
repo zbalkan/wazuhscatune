@@ -1,27 +1,30 @@
 """Upload routes - File upload and validation."""
-import os
-import uuid
-import re
 import logging
-from flask import Blueprint, render_template, request, session, url_for, jsonify, current_app, redirect
+import os
+import re
+import uuid
+from pathlib import Path
+from typing import Any, Literal
+
+from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
+from werkzeug.wrappers.response import Response as wResponse
 
 from sca.services.sca_service import SCAService
-from sca.services.session_service import SessionService
-from sca.services.session_service import contained_path
-
+from sca.services.session_service import SessionService, contained_path
 
 upload_bp = Blueprint('upload', __name__)
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-def allowed_file(filename):
+def allowed_file(filename: str) -> bool:
     """Check if file extension is allowed."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
 
 
-def sanitize_policy_name(name):
+def sanitize_policy_name(name: str) -> str:
     """
     Sanitize policy name for use as filename.
     - Convert to lowercase
@@ -35,7 +38,7 @@ def sanitize_policy_name(name):
         return ''
 
     # Convert to lowercase
-    sanitized = name.lower()
+    sanitized: str = name.lower()
 
     # Keep only alphanumeric, spaces, hyphens, and underscores
     sanitized = re.sub(r'[^a-z0-9\s\-_]', '', sanitized)
@@ -56,31 +59,31 @@ def sanitize_policy_name(name):
 
 
 @upload_bp.route('/')
-def index():
+def index() -> str:
     """Landing page with upload form."""
-    drafts = SessionService(current_app.config['DRAFT_FOLDER']).list_drafts()
+    drafts: list[dict[str, Any]] = SessionService(current_app.config['DRAFT_FOLDER']).list_drafts()
     return render_template('index.html', drafts=drafts)
 
 
 @upload_bp.route('/upload', methods=['POST'])
-def upload_file():
+def upload_file() -> tuple[Response, Literal[400]] | Response | tuple[Response, Literal[500]]:
     """Handle file upload, validation, and session initialization."""
     try:
         # Check if file was uploaded
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
 
-        file = request.files['file']
+        file: FileStorage = request.files['file']
 
-        if file.filename == '':
+        if file.filename == '' or file.filename is None:
             return jsonify({'error': 'No file selected'}), 400
 
         if not allowed_file(file.filename):
             return jsonify({'error': 'Invalid file type. Only .yml and .yaml files are allowed'}), 400
 
         # Get custom policy details
-        custom_name = request.form.get('custom_name', '').strip()
-        custom_description = request.form.get('custom_description', '').strip()
+        custom_name: str = request.form.get('custom_name', '').strip()
+        custom_description: str = request.form.get('custom_description', '').strip()
 
         # Validate inputs
         if not custom_name or len(custom_name) < 15 or len(custom_name) > 100:
@@ -90,9 +93,9 @@ def upload_file():
             return jsonify({'error': 'Policy description must be between 50 and 500 characters'}), 400
 
         # Save uploaded file
-        filename = secure_filename(file.filename)
+        filename: str = secure_filename(file.filename)
         session_id = str(uuid.uuid4())
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{session_id}_{filename}")
+        filepath: str = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{session_id}_{filename}")
 
         try:
             file.save(filepath)
@@ -104,7 +107,7 @@ def upload_file():
                 return jsonify({'error': f'Invalid SCA file: {error_msg}'}), 400
 
             # Sanitize policy name for filename
-            sanitized_name = sanitize_policy_name(custom_name)
+            sanitized_name: str = sanitize_policy_name(custom_name)
             if not sanitized_name:
                 os.remove(filepath)
                 return jsonify({'error': 'Policy name contains no valid characters for filename'}), 400
@@ -143,24 +146,24 @@ def upload_file():
 
 
 @upload_bp.route('/validate', methods=['POST'])
-def validate_file():
+def validate_file() -> tuple[Response, Literal[400]] | Response | tuple[Response, Literal[500]]:
     """AJAX endpoint for file validation."""
     try:
         if 'file' not in request.files:
             return jsonify({'valid': False, 'error': 'No file provided'}), 400
 
-        file = request.files['file']
+        file: FileStorage = request.files['file']
 
-        if file.filename == '':
+        if file.filename == '' or file.filename is None:
             return jsonify({'valid': False, 'error': 'No file selected'}), 400
 
         if not allowed_file(file.filename):
             return jsonify({'valid': False, 'error': 'Invalid file type'}), 400
 
         # Save to temporary location for validation
-        filename = secure_filename(file.filename)
+        filename: str = secure_filename(file.filename)
         validation_id = str(uuid.uuid4())
-        temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], f"validate_{validation_id}_{filename}")
+        temp_path: str = os.path.join(current_app.config['UPLOAD_FOLDER'], f"validate_{validation_id}_{filename}")
         try:
             file.save(temp_path)
             is_valid, error_msg = SCAService.validate_sca_file(temp_path)
@@ -179,15 +182,15 @@ def validate_file():
 
 
 @upload_bp.route('/recover/<session_id>')
-def recover_draft(session_id):
+def recover_draft(session_id: str) -> tuple[Response, Literal[404]] | tuple[Response, Literal[410]] | wResponse | tuple[Response, Literal[400]]:
     """Restore a locally persisted review draft."""
     service = SessionService(current_app.config['DRAFT_FOLDER'])
-    data = service.load_draft(session_id)
+    data: dict[str, Any] | None = service.load_draft(session_id)
     if not data:
         return jsonify({'error': 'Draft not found'}), 404
     try:
-        filename = data['baseline_filename']
-        path = contained_path(current_app.config['UPLOAD_FOLDER'], filename)
+        filename = str(data['baseline_filename'])
+        path: Path = contained_path(current_app.config['UPLOAD_FOLDER'], filename)
         if not path.is_file():
             return jsonify({'error': 'Draft baseline is no longer available'}), 410
         session.clear()

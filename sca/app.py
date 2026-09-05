@@ -8,7 +8,7 @@ import re
 import sys
 import webbrowser
 from threading import Timer
-from typing import Final
+from typing import Final, Literal
 
 from flask import Flask, render_template
 from flask_session import Session
@@ -45,7 +45,7 @@ class SanitizingFormatter(logging.Formatter):
     """Format a sanitized copy without mutating the shared log record."""
 
     def format(self, record: logging.LogRecord) -> str:
-        sanitized = copy.copy(record)
+        sanitized: logging.LogRecord = copy.copy(record)
         sanitized.msg = ANSI_ESCAPE_RE.sub('', sanitized.getMessage())
         sanitized.args = ()
         if sanitized.name == 'root':
@@ -56,9 +56,9 @@ class SanitizingFormatter(logging.Formatter):
 def _get_log_path() -> str:
     """Return a per-user log file path for Windows, Linux, and macOS."""
     if os.name == "nt":
-        base_dir = os.getenv(
+        base_dir: str = os.getenv(
             "LOCALAPPDATA", os.path.expanduser("~\\AppData\\Local"))
-        log_dir = os.path.join(base_dir, APP_NAME, "Logs")
+        log_dir: str = os.path.join(base_dir, APP_NAME, "Logs")
     elif sys.platform == "darwin":
         log_dir = os.path.expanduser(f"~/Library/Logs/{APP_NAME}")
     else:
@@ -102,15 +102,15 @@ def create_app(config_class=Config) -> Flask:
     app.register_blueprint(export_bp)
 
     @app.errorhandler(404)
-    def not_found_error(error):
+    def not_found_error(error) -> tuple[str, Literal[404]]:
         return render_template('errors/404.html'), 404
 
     @app.errorhandler(500)
-    def internal_error(error):
+    def internal_error(error) -> tuple[str, Literal[500]]:
         return render_template('errors/500.html'), 500
 
     @app.errorhandler(413)
-    def request_entity_too_large(error):
+    def request_entity_too_large(error) -> tuple[dict[str, str], Literal[413]]:
         return {'error': 'File too large. Maximum size is 16MB.'}, 413
 
     return app
@@ -149,8 +149,8 @@ def main() -> None:
         logging_ready = True
         logging.info('Starting')
 
-        app = create_app()
-        url = f'http://{HOST}:{PORT}/'
+        app: Flask = create_app()
+        url: str = f'http://{HOST}:{PORT}/'
         Timer(1, _open_browser, args=(url,)).start()
 
         logging.info("Starting Flask app...")

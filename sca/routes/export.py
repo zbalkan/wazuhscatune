@@ -1,18 +1,22 @@
 """Export routes - Export and download functionality."""
-import os
 import logging
-from flask import Blueprint, render_template, session, jsonify, send_file, current_app, redirect, url_for
+import os
+from typing import Any, Literal
 
-from sca.services.sca_service import SCAService
-from sca.services.export_service import ExportService
-from sca.services.session_service import SessionService
-from sca.internal.review import DecisionType, normalize_decisions
-from sca.services.session_service import contained_path, validate_contained
+from flask import Blueprint, current_app, jsonify, redirect, render_template, send_file, session, url_for
+from flask.wrappers import Response
+from werkzeug import Response as wResponse
+
+from sca.internal.guide import Guide
+from sca.internal.loosening import Tailoring
+from sca.internal.review import DecisionType, ReviewDecision, normalize_decisions
 from sca.routes.upload import sanitize_policy_name
-
+from sca.services.export_service import ExportService
+from sca.services.sca_service import SCAService
+from sca.services.session_service import SessionService, contained_path, validate_contained
 
 export_bp = Blueprint('export', __name__)
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _baseline_path() -> str:
@@ -21,21 +25,21 @@ def _baseline_path() -> str:
 
 
 @export_bp.route('/approval')
-def approval_page():
+def approval_page() -> wResponse | str:
     """Final approval page."""
     if 'session_id' not in session or 'baseline_filename' not in session:
         return redirect(url_for('upload.index'))
 
     try:
-        guide = SCAService.load_baseline(_baseline_path())
-        checks = SCAService.get_checks(guide)
+        guide: Guide = SCAService.load_baseline(_baseline_path())
+        checks: list[dict[str, Any]] = SCAService.get_checks(guide)
         decisions = session.get('decisions', {})
 
         # Calculate statistics
-        total = len(checks)
+        total: int = len(checks)
         excluded_checks = []
 
-        normalized = normalize_decisions(decisions, {check['id'] for check in checks})
+        normalized: dict[int, ReviewDecision] = normalize_decisions(decisions, {check['id'] for check in checks})
         for check in checks:
             check_decision = normalized.get(check['id'])
             if check_decision and check_decision.decision is DecisionType.EXCEPTION:
@@ -45,41 +49,41 @@ def approval_page():
                     'justification': check_decision.justification or ''
                 })
 
-        stats = SCAService.calculate_stats(guide, decisions)
+        stats: dict[str, Any] = SCAService.calculate_stats(guide, decisions)
 
         return render_template('approval.html',
-                             custom_name=session.get('custom_name'),
-                             custom_description=session.get('custom_description'),
-                             total=total,
-                             stats=stats,
-                             excluded_checks=excluded_checks)
+                               custom_name=session.get('custom_name'),
+                               custom_description=session.get('custom_description'),
+                               total=total,
+                               stats=stats,
+                               excluded_checks=excluded_checks)
     except Exception:
         logger.exception("Unable to load approval page")
         raise
 
 
 @export_bp.route('/api/export', methods=['POST'])
-def export_files():
+def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response, Literal[500]]:
     """Generate export files."""
     if 'session_id' not in session or 'baseline_filename' not in session:
         return jsonify({'error': 'No active session'}), 400
 
     try:
         # Load guide
-        guide = SCAService.load_baseline(_baseline_path())
+        guide: Guide = SCAService.load_baseline(_baseline_path())
         sca = guide.sca
 
         # Get decisions
         decisions = session.get('decisions', {})
 
         # Validate at least one check remains included
-        baseline_ids = {check.id for check in sca.checks}
+        baseline_ids: set[int] = {check.id for check in sca.checks}
         try:
-            normalized = normalize_decisions(decisions, baseline_ids, strict=True)
+            normalized: dict[int, ReviewDecision] = normalize_decisions(decisions, baseline_ids, strict=True)
         except ValueError:
             return jsonify({'error': 'Review state is invalid; review the affected checks again.'}), 400
-        excluded_ids = {check_id for check_id, value in normalized.items()
-                        if value.decision is DecisionType.EXCEPTION}
+        excluded_ids: set[int] = {check_id for check_id, value in normalized.items()
+                                  if value.decision is DecisionType.EXCEPTION}
 
         if excluded_ids == baseline_ids:
             return jsonify({'error': 'At least one check must remain included'}), 400
@@ -87,7 +91,7 @@ def export_files():
         # Create tailoring record
         custom_name = session.get('custom_name')
         custom_description = session.get('custom_description')
-        sanitized_name = session.get('sanitized_name')
+        sanitized_name = str(session.get('sanitized_name'))
         if not sanitized_name:
             # Legacy drafts may not have stored the sanitized filename.
             if not isinstance(custom_name, str) or not custom_name.strip():
@@ -96,26 +100,25 @@ def export_files():
             if not sanitized_name:
                 return jsonify({'error': 'Review session has no valid export filename; start a new review.'}), 400
 
-        full_description = f"{custom_description} (Based on {sca.policy.name})"
-        tailoring = SCAService.create_tailoring(custom_name, sanitized_name, full_description)
+        full_description: str = f"{custom_description} (Based on {sca.policy.name})"
+        tailoring: Tailoring = SCAService.create_tailoring(custom_name, sanitized_name, full_description)  # type: ignore
 
         # Add decisions to loosening
         for check in sca.checks:
-            check_id = str(check.id)
             if check.id in excluded_ids:
-                justification = normalized[check.id].justification or ''
+                justification: str = normalized[check.id].justification or ''
                 SCAService.add_exception(tailoring, check, justification)
 
         # Generate files using sanitized name
-        base_filename = sanitized_name
+        base_filename: str = sanitized_name
         custom_sca_path, loosening_yml_path, loosening_md_path, temp_dir = ExportService.generate_files(
             guide, tailoring, base_filename, current_app.config['EXPORT_FOLDER']
         )
 
         # Create ZIP archive
-        files = [custom_sca_path, loosening_yml_path, loosening_md_path]
-        zip_filename = f"{sanitized_name}_export.zip"
-        zip_path = ExportService.create_zip_archive(
+        files: list[str] = [custom_sca_path, loosening_yml_path, loosening_md_path]
+        zip_filename: str = f"{sanitized_name}_export.zip"
+        zip_path: str = ExportService.create_zip_archive(
             files, zip_filename, current_app.config['EXPORT_FOLDER'])
 
         # Store paths in session for download and cleanup
@@ -135,7 +138,7 @@ def export_files():
 
 
 @export_bp.route('/download')
-def download_file():
+def download_file() -> tuple[Response, Literal[400]] | tuple[Response, Literal[404]] | Response:
     """Download ZIP file."""
     if 'export_zip_path' not in session:
         return jsonify({'error': 'No file to download'}), 400
@@ -154,7 +157,7 @@ def download_file():
 
 
 @export_bp.route('/api/cleanup', methods=['POST'])
-def cleanup_session():
+def cleanup_session() -> Response | tuple[Response, Literal[500]]:
     """Cleanup session files."""
     try:
         session_id = session.get('session_id')
@@ -172,7 +175,7 @@ def cleanup_session():
                 current_app.config['EXPORT_FOLDER'], export_zip_path))
             ExportService.cleanup_temp_files(export_zip_path)
             # Also remove the ZIP temp directory
-            zip_temp_dir = os.path.dirname(export_zip_path)
+            zip_temp_dir: str = os.path.dirname(export_zip_path)
             if os.path.exists(zip_temp_dir):
                 ExportService.cleanup_temp_files(zip_temp_dir)
 

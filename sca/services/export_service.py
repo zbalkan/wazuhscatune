@@ -1,13 +1,12 @@
 """Export Service - File generation logic."""
-import os
-import zipfile
 import logging
-import uuid
+import os
+import re
 import shutil
 import tempfile
-import re
+import uuid
+import zipfile
 from pathlib import Path
-from typing import List, Tuple
 
 from sca.internal.guide import Guide
 from sca.internal.loosening import Tailoring
@@ -18,7 +17,7 @@ class ExportService:
 
     @staticmethod
     def generate_files(guide: Guide, tailoring: Tailoring,
-                      base_filename: str, export_root: str | None = None) -> Tuple[str, str, str, str]:
+                       base_filename: str, export_root: str | None = None) -> tuple[str, str, str, str]:
         """
         Create a tailored SCA policy and exception records.
 
@@ -33,15 +32,15 @@ class ExportService:
         # Create temporary directory for generated files
         if not re.fullmatch(r'[a-z0-9][a-z0-9_]*', base_filename):
             raise ValueError("Invalid export filename")
-        root = Path(export_root or tempfile.gettempdir()).resolve()
+        root: Path = Path(export_root or tempfile.gettempdir()).resolve()
         root.mkdir(parents=True, exist_ok=True)
         temp_dir = str(root / str(uuid.uuid4()))
         os.mkdir(temp_dir)
 
         # Generate file paths
-        custom_sca_path = os.path.join(temp_dir, f"{base_filename}.yml")
-        exceptions_yml_path = os.path.join(temp_dir, f"{base_filename}_exceptions.yml")
-        exceptions_md_path = os.path.join(temp_dir, f"{base_filename}_exceptions.md")
+        custom_sca_path: str = os.path.join(temp_dir, f"{base_filename}.yml")
+        exceptions_yml_path: str = os.path.join(temp_dir, f"{base_filename}_exceptions.yml")
+        exceptions_md_path: str = os.path.join(temp_dir, f"{base_filename}_exceptions.md")
 
         try:
             guide.import_tailoring(tailoring)
@@ -55,7 +54,7 @@ class ExportService:
         return custom_sca_path, exceptions_yml_path, exceptions_md_path, temp_dir
 
     @staticmethod
-    def create_zip_archive(files: List[str], archive_name: str,
+    def create_zip_archive(files: list[str], archive_name: str,
                            export_root: str | None = None) -> str:
         """
         Bundle files into ZIP archive.
@@ -69,11 +68,11 @@ class ExportService:
         """
         if Path(archive_name).name != archive_name or not archive_name.endswith('.zip'):
             raise ValueError("Invalid archive filename")
-        root = Path(export_root or tempfile.gettempdir()).resolve()
+        root: Path = Path(export_root or tempfile.gettempdir()).resolve()
         root.mkdir(parents=True, exist_ok=True)
         temp_dir = str(root / str(uuid.uuid4()))
         os.mkdir(temp_dir)
-        zip_path = os.path.join(temp_dir, archive_name)
+        zip_path: str = os.path.join(temp_dir, archive_name)
 
         try:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -101,6 +100,6 @@ class ExportService:
                     os.remove(path)
                 elif os.path.isdir(path):
                     shutil.rmtree(path)
-            except Exception as e:
+            except Exception:
                 logging.getLogger(__name__).warning(
                     "Unable to clean up export path %s", path, exc_info=True)

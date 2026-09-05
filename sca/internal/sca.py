@@ -4,24 +4,24 @@ https://documentation.wazuh.com/current/user-manual/capabilities/sec-config-asse
 '''
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
 class Compliance:
-    cis: Optional[list[str]]
-    cis_csc_v8: Optional[list[str]]
-    cis_csc_v7: Optional[list[str]]
-    nist_sp_800_53: Optional[list[str]]
-    iso_27001_2013: Optional[list[str]]
-    cmmc_v2_0: Optional[list[str]]
-    pci_dss_v3_2_1: Optional[list[str]]
-    pci_dss_v4_0: Optional[list[str]]
-    soc_2: Optional[list[str]]
-    mitre_techniques: Optional[list[str]]
-    mitre_tactics: Optional[list[str]]
-    mitre_mitigations: Optional[list[str]]
-    hipaa: Optional[list[str]]
+    cis: list[str] | None
+    cis_csc_v8: list[str] | None
+    cis_csc_v7: list[str] | None
+    nist_sp_800_53: list[str] | None
+    iso_27001_2013: list[str] | None
+    cmmc_v2_0: list[str] | None
+    pci_dss_v3_2_1: list[str] | None
+    pci_dss_v4_0: list[str] | None
+    soc_2: list[str] | None
+    mitre_techniques: list[str] | None
+    mitre_tactics: list[str] | None
+    mitre_mitigations: list[str] | None
+    hipaa: list[str] | None
 
     @staticmethod
     def from_dict(obj: Any) -> 'Compliance':
@@ -77,22 +77,23 @@ class Compliance:
         __hipaa = obj.get("hipaa")
         if __hipaa:
             _hipaa = list(__hipaa)
-        return Compliance(_cis, _cis_csc_v8, _cis_csc_v7, _nist_sp_800_53, _iso_27001_2013, _cmmc_v2_0, _pci_dss_v3_2_1, _pci_dss_v4_0, _soc_2, _mitre_techniques, _mitre_tactics, _mitre_mitigations, _hipaa)
+        return Compliance(_cis, _cis_csc_v8, _cis_csc_v7, _nist_sp_800_53, _iso_27001_2013, _cmmc_v2_0, _pci_dss_v3_2_1, _pci_dss_v4_0, _soc_2,
+                          _mitre_techniques, _mitre_tactics, _mitre_mitigations, _hipaa)
 
 
 @dataclass
 class Check:
-    compliance: Optional[list[Compliance]]
+    compliance: list[Compliance] | None
     condition: str
-    description: Optional[str]
+    description: str | None
     id: int
     impact: str
-    rationale: Optional[str]
-    references: Optional[list[str]]
-    remediation: Optional[str]
-    rules: Optional[list[str]]
+    rationale: str | None
+    references: list[str] | None
+    remediation: str | None
+    rules: list[str] | None
     title: str
-    regex_type: Optional[str]
+    regex_type: str | None
 
     @staticmethod
     def from_dict(obj: Any) -> 'Check':
@@ -137,8 +138,8 @@ class Policy:
     file: str
     id: str
     name: str
-    references: Optional[list[str]]
-    regex_type: Optional[str]
+    references: list[str] | None
+    regex_type: str | None
 
     @staticmethod
     def from_dict(obj: Any) -> 'Policy':
@@ -161,7 +162,7 @@ class Policy:
 class Requirements:
     condition: str
     description: str
-    rules: Optional[list[str]]
+    rules: list[str] | None
     title: str
 
     @staticmethod
@@ -181,7 +182,7 @@ class SCA:
     checks: list[Check]
     policy: Policy
     requirements: Requirements
-    variables: Optional[dict]
+    variables: dict | None
 
     @staticmethod
     def from_dict(obj: Any) -> 'SCA':

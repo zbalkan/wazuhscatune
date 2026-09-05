@@ -7,12 +7,12 @@ from typing import Final
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from sca.internal.loosening import Tailoring, TailoringException
-from sca.internal.sca import Check, Compliance
 from sca.config import VERSION
+from sca.internal.loosening import Tailoring, TailoringException
+from sca.internal.sca import SCA, Check, Compliance
 
 ENCODING: Final[str] = 'UTF-8'
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def escape_markdown_cell(value: object) -> str:
@@ -27,7 +27,7 @@ class Guide:
     __tailoring__: Tailoring
 
     def __init__(self, baseline_path: str) -> None:
-        self.baseline_path = baseline_path
+        self.baseline_path: str = baseline_path
         self.__yaml__ = YAML()
         self.__yaml__.register_class(Tailoring)
         self.__yaml__.register_class(TailoringException)
@@ -36,7 +36,6 @@ class Guide:
 
         with open(baseline_path, mode='r', encoding=ENCODING) as fs:
             self.__sca_yml__ = CommentedMap(self.__yaml__.load(fs))
-        from sca.internal.sca import SCA
         self.sca = SCA.from_dict(self.__sca_yml__)
 
     def import_tailoring(self, tailoring: Tailoring) -> None:

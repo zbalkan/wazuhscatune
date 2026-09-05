@@ -1,15 +1,18 @@
 """Review routes - Review interface and AJAX endpoints."""
 import logging
-from flask import Blueprint, render_template, request, session, jsonify, current_app, redirect, url_for
+from typing import Any, Literal
 
-from sca.services.sca_service import SCAService
-from sca.services.session_service import SessionService
-from sca.services.session_service import contained_path
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
+from flask.wrappers import Response
+from werkzeug import Response as wResponse
+
+from sca.internal.guide import Guide
 from sca.internal.review import ReviewDecision, normalize_decisions
-
+from sca.services.sca_service import SCAService
+from sca.services.session_service import SessionService, contained_path
 
 review_bp = Blueprint('review', __name__)
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def _baseline_path() -> str:
@@ -18,7 +21,7 @@ def _baseline_path() -> str:
 
 
 @review_bp.route('/review')
-def review_page():
+def review_page() -> wResponse | str:
     """Main review interface."""
     # Check if session is initialized
     if 'session_id' not in session or 'baseline_filename' not in session:
@@ -26,40 +29,40 @@ def review_page():
 
     try:
         # Load guide
-        guide = SCAService.load_baseline(_baseline_path())
+        guide: Guide = SCAService.load_baseline(_baseline_path())
 
         # Get summary and checks
-        summary = SCAService.get_sca_summary(guide)
-        checks = SCAService.get_checks(guide)
-        checks_client = [dict(check, id=str(check['id'])) for check in checks]
+        summary: dict[str, Any] = SCAService.get_sca_summary(guide)
+        checks: list[dict[str, Any]] = SCAService.get_checks(guide)
+        checks_client: list[dict[str, Any]] = [dict(check, id=str(check['id'])) for check in checks]
 
         # Get decisions from session
         decisions = session.get('decisions', {})
 
-        baseline_ids = {check['id'] for check in checks}
-        decisions_int = {str(key): value.to_session() for key, value in
-                         normalize_decisions(decisions, baseline_ids).items()}
-        stats = SCAService.calculate_stats(guide, decisions)
+        baseline_ids: set[Any] = {check['id'] for check in checks}
+        decisions_int: dict[str, dict[str, str]] = {str(key): value.to_session() for key, value in
+                                                    normalize_decisions(decisions, baseline_ids).items()}
+        stats: dict[str, Any] = SCAService.calculate_stats(guide, decisions)
 
         return render_template('review.html',
-                             policy_name=session.get('custom_name'),
-                             summary=summary,
-                             checks=checks, checks_client=checks_client,
-                             decisions=decisions_int, stats=stats)
+                               policy_name=session.get('custom_name'),
+                               summary=summary,
+                               checks=checks, checks_client=checks_client,
+                               decisions=decisions_int, stats=stats)
     except Exception:
         logger.exception("Unable to load review page")
         raise
 
 
 @review_bp.route('/api/check/<int:check_id>')
-def get_check(check_id):
+def get_check(check_id) -> tuple[Response, Literal[400]] | tuple[Response, Literal[404]] | Response | tuple[Response, Literal[500]]:
     """Get specific check details (AJAX)."""
     if 'baseline_filename' not in session:
         return jsonify({'error': 'No active session'}), 400
 
     try:
-        guide = SCAService.load_baseline(_baseline_path())
-        check = SCAService.get_check_by_id(guide, check_id)
+        guide: Guide = SCAService.load_baseline(_baseline_path())
+        check: dict[str, Any] | None = SCAService.get_check_by_id(guide, check_id)
 
         if check is None:
             return jsonify({'error': 'Check not found'}), 404
@@ -79,7 +82,7 @@ def get_check(check_id):
 
 
 @review_bp.route('/api/decision', methods=['POST'])
-def save_decision():
+def save_decision() -> tuple[Response, Literal[400]] | tuple[Response, Literal[404]] | Response | tuple[Response, Literal[500]]:
     """Save exclusion decision (AJAX)."""
     if 'session_id' not in session:
         return jsonify({'error': 'No active session'}), 400
@@ -101,11 +104,11 @@ def save_decision():
         if str(check_id) != str(check_id_raw):
             return jsonify({'error': 'Field check_id must be an integer string'}), 400
 
-        guide = SCAService.load_baseline(_baseline_path())
+        guide: Guide = SCAService.load_baseline(_baseline_path())
         if SCAService.get_check_by_id(guide, check_id) is None:
             return jsonify({'error': 'Unknown check ID'}), 404
         try:
-            normalized = ReviewDecision.create(
+            normalized: ReviewDecision = ReviewDecision.create(
                 check_id, data.get('decision'), data.get('justification', ''))
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
@@ -118,7 +121,7 @@ def save_decision():
 
         # Save draft
         session_service = SessionService(current_app.config['DRAFT_FOLDER'])
-        session_data = SessionService.serialize_session_data(
+        session_data: dict[str, Any] = SessionService.serialize_session_data(
             session['baseline_filename'],
             session['custom_name'],
             session['sanitized_name'],
@@ -139,21 +142,21 @@ def save_decision():
 
 
 @review_bp.route('/api/save-draft', methods=['POST'])
-def manual_save_draft():
+def manual_save_draft() -> tuple[Response, Literal[400]] | Response | tuple[Response, Literal[500]]:
     """Manually save draft."""
     if 'session_id' not in session:
         return jsonify({'error': 'No active session'}), 400
 
     try:
         session_service = SessionService(current_app.config['DRAFT_FOLDER'])
-        session_data = SessionService.serialize_session_data(
+        session_data: dict[str, Any] = SessionService.serialize_session_data(
             session['baseline_filename'],
             session['custom_name'],
             session['sanitized_name'],
             session['custom_description'],
             session.get('decisions', {})
         )
-        success = session_service.save_draft(session['session_id'], session_data)
+        success: bool = session_service.save_draft(session['session_id'], session_data)
 
         if success:
             return jsonify({'success': True})
@@ -166,13 +169,13 @@ def manual_save_draft():
 
 
 @review_bp.route('/api/stats')
-def get_stats():
+def get_stats() -> tuple[Response, Literal[400]] | Response | tuple[Response, Literal[500]]:
     """Get current review statistics."""
     if 'baseline_filename' not in session:
         return jsonify({'error': 'No active session'}), 400
 
     try:
-        guide = SCAService.load_baseline(_baseline_path())
+        guide: Guide = SCAService.load_baseline(_baseline_path())
         decisions = session.get('decisions', {})
 
         return jsonify(SCAService.calculate_stats(guide, decisions))

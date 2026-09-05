@@ -3,13 +3,13 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import Mapping
 
 # At least this many distinct letters must appear in a justification. Blocks
 # "!!!!!!!!!!", "aaaaaaaaaa", "..........", and similar keyboard-mashing that
 # happens to clear the length check but carries no auditable reasoning.
 _MIN_DISTINCT_LETTERS = 4
-_LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+_LETTER_RE: re.Pattern[str] = re.compile(r"[^\W\d_]", re.UNICODE)
 
 
 def _is_meaningful(text: str) -> bool:

@@ -1,21 +1,21 @@
 """SCA Service - Business logic for SCA operations."""
 import os
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ruamel.yaml import YAML
 
 from sca.internal.guide import Guide
 from sca.internal.loosening import Tailoring, TailoringException
-from sca.internal.sca import SCA, Check
 from sca.internal.review import DecisionType, normalize_decisions
+from sca.internal.sca import SCA, Check
 
 
 class SCAService:
     """Service for handling SCA file operations."""
 
     @staticmethod
-    def validate_sca_file(filepath: str) -> tuple[bool, Optional[str]]:
+    def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
         """
         Validate SCA YAML file structure.
 
@@ -148,7 +148,7 @@ class SCAService:
         return Guide(baseline_path=filepath)
 
     @staticmethod
-    def get_sca_summary(guide: Guide) -> Dict[str, Any]:
+    def get_sca_summary(guide: Guide) -> dict[str, Any]:
         """
         Extract policy info and check statistics.
 
@@ -169,7 +169,7 @@ class SCAService:
         }
 
     @staticmethod
-    def get_checks(guide: Guide) -> list[Dict[str, Any]]:
+    def get_checks(guide: Guide) -> list[dict[str, Any]]:
         """
         Return list of all checks with serializable data.
 
@@ -179,7 +179,7 @@ class SCAService:
         Returns:
             List of check dictionaries
         """
-        sca = guide.sca
+        sca: SCA = guide.sca
         checks = []
 
         for check in sca.checks:
@@ -198,15 +198,15 @@ class SCAService:
         return checks
 
     @staticmethod
-    def _serialize_compliance(compliance_list) -> list[Dict[str, list[str]]]:
+    def _serialize_compliance(compliance_list) -> list[dict[str, list[str]]]:
         """Serialize compliance data for JSON."""
         result = []
         for comp in compliance_list:
             comp_dict = {}
             for field in ['cis', 'cis_csc_v8', 'cis_csc_v7', 'nist_sp_800_53',
-                         'iso_27001_2013', 'cmmc_v2_0', 'pci_dss_v3_2_1',
-                         'pci_dss_v4_0', 'soc_2', 'mitre_techniques',
-                         'mitre_tactics', 'mitre_mitigations', 'hipaa']:
+                          'iso_27001_2013', 'cmmc_v2_0', 'pci_dss_v3_2_1',
+                          'pci_dss_v4_0', 'soc_2', 'mitre_techniques',
+                          'mitre_tactics', 'mitre_mitigations', 'hipaa']:
                 value = getattr(comp, field, None)
                 if value:
                     comp_dict[field] = value
@@ -214,7 +214,7 @@ class SCAService:
         return result
 
     @staticmethod
-    def get_check_by_id(guide: Guide, check_id: int) -> Optional[Dict[str, Any]]:
+    def get_check_by_id(guide: Guide, check_id: int) -> dict[str, Any] | None:
         """
         Get specific check details.
 
@@ -238,7 +238,7 @@ class SCAService:
         return None
 
     @staticmethod
-    def calculate_stats(guide: Guide, decisions: Dict[str, Any]) -> Dict[str, Any]:
+    def calculate_stats(guide: Guide, decisions: dict[str, Any]) -> dict[str, Any]:
         """Calculate review statistics using only checks in the active baseline."""
         baseline_ids = {check['id'] for check in SCAService.get_checks(guide)}
         normalized = normalize_decisions(decisions, baseline_ids)
