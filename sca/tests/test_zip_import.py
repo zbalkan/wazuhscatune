@@ -49,11 +49,16 @@ def test_exported_zip_policy_can_be_imported(tmp_path):
             custom_name='Imported Policy Exceptions',
             sanitized_name='imported_policy_exceptions',
             custom_description='Imported policy description long enough for the required form validation.',
-            decisions={
-                '1': {'decision': 'accepted', 'justification': None},
-                '2': {'decision': 'accepted', 'justification': None},
-            },
+            decisions={},
         )
+
+    for check_id in (1, 2):
+        response = client.post('/api/decision', json={
+            'check_id': check_id,
+            'decision': 'accepted',
+            'justification': '',
+        })
+        assert response.status_code == 200
 
     export_response = client.post('/api/export')
     assert export_response.status_code == 200
