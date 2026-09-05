@@ -108,10 +108,12 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
             if check.id in excluded_ids:
                 add_exception(tailoring, check, normalized[check.id].justification or '')
 
+        previous_path = None
         previous = session.get('export_zip_path')
         if isinstance(previous, str):
             try:
-                cleanup_export(str(validate_contained(current_app.config['EXPORT_FOLDER'], previous)))
+                previous_path = str(validate_contained(
+                    current_app.config['EXPORT_FOLDER'], previous))
             except ValueError:
                 pass
 
@@ -120,6 +122,10 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
         session['export_zip_path'] = zip_path
         session['export_zip_filename'] = f'{sanitized_name}_export.zip'
         session.modified = True
+
+        if previous_path is not None:
+            cleanup_export(previous_path)
+
         return jsonify({'success': True, 'download_url': '/download'})
     except Exception:
         logger.exception("Unable to generate export")
