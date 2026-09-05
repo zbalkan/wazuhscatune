@@ -31,19 +31,20 @@ def review_page():
         # Get summary and checks
         summary = SCAService.get_sca_summary(guide)
         checks = SCAService.get_checks(guide)
+        checks_client = [dict(check, id=str(check['id'])) for check in checks]
 
         # Get decisions from session
         decisions = session.get('decisions', {})
 
         baseline_ids = {check['id'] for check in checks}
-        decisions_int = {key: value.to_session() for key, value in
+        decisions_int = {str(key): value.to_session() for key, value in
                          normalize_decisions(decisions, baseline_ids).items()}
         stats = SCAService.calculate_stats(guide, decisions)
 
         return render_template('review.html',
                              policy_name=session.get('custom_name'),
                              summary=summary,
-                             checks=checks,
+                             checks=checks, checks_client=checks_client,
                              decisions=decisions_int, stats=stats)
     except Exception:
         logger.exception("Unable to load review page")
@@ -88,11 +89,17 @@ def save_decision():
         if not isinstance(data, dict):
             return jsonify({'error': 'Invalid or missing JSON body'}), 400
 
-        check_id = data.get('check_id')
-        if check_id is None:
+        check_id_raw = data.get('check_id')
+        if check_id_raw is None:
             return jsonify({'error': 'Missing required field: check_id'}), 400
-        if type(check_id) is not int:
-            return jsonify({'error': 'Field check_id must be an integer'}), 400
+        if isinstance(check_id_raw, bool) or not isinstance(check_id_raw, (str, int)):
+            return jsonify({'error': 'Field check_id must be an integer string'}), 400
+        try:
+            check_id = int(check_id_raw)
+        except ValueError:
+            return jsonify({'error': 'Field check_id must be an integer string'}), 400
+        if str(check_id) != str(check_id_raw):
+            return jsonify({'error': 'Field check_id must be an integer string'}), 400
 
         guide = SCAService.load_baseline(_baseline_path())
         if SCAService.get_check_by_id(guide, check_id) is None:
@@ -121,7 +128,7 @@ def save_decision():
         session_service.save_draft(session['session_id'], session_data)
 
         return jsonify({
-            'success': True, 'check_id': check_id,
+            'success': True, 'check_id': str(check_id),
             'decision': decisions[str(check_id)],
             'stats': SCAService.calculate_stats(guide, decisions),
         })
