@@ -61,6 +61,10 @@ class CardManager {
                 statusEl.dataset.status = 'accepted';
             }
         }
+
+        document.dispatchEvent(new CustomEvent('cardDecisionChanged', {
+            detail: { checkId: String(checkId) }
+        }));
     }
 
     updateAllCards() {

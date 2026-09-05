@@ -51,7 +51,7 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install --upgrade build twine
       - run: python -m build
-      - run: python -m twine check dist/*
+      - run: python -m twine check --strict dist/*
       - run: python -m pip install dist/*.whl
       - name: Installed-wheel smoke test
         run: |

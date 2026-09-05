@@ -3,21 +3,13 @@
  * Manages modal interactions and check detail viewing
  */
 
-// Mirrors the server-side check in sca/internal/review.py: rejects
-// justifications with too few distinct letters, or where a single
-// character (e.g. "!!!!!!!!!!") dominates the text. This is a UX
-// shortcut only - the server re-validates and is the source of truth.
 const MIN_DISTINCT_LETTERS = 4;
 
 function isMeaningfulJustification(text) {
     const letters = (text.toLowerCase().match(/[^\W\d_]/gu) || []);
-    if (new Set(letters).size < MIN_DISTINCT_LETTERS) {
-        return false;
-    }
+    if (new Set(letters).size < MIN_DISTINCT_LETTERS) return false;
     const stripped = text.replace(/\s+/g, '');
-    if (!stripped) {
-        return false;
-    }
+    if (!stripped) return false;
     const counts = {};
     let mostCommonCount = 0;
     for (const char of stripped) {
@@ -34,6 +26,7 @@ class ModalHandler {
         this.cardManager = cardManager;
         this.currentCheckId = null;
         this.previouslyFocusedElement = null;
+        this.saveInFlight = false;
 
         this.modal = document.getElementById('check-modal');
         this.modalTitle = document.getElementById('modal-title');
@@ -42,7 +35,6 @@ class ModalHandler {
         this.prevBtn = document.getElementById('modal-prev-btn');
         this.nextBtn = document.getElementById('modal-next-btn');
         this.saveBtn = document.getElementById('modal-save-btn');
-
         this.includeRadio = document.querySelector('input[name="decision"][value="include"]');
         this.excludeRadio = document.querySelector('input[name="decision"][value="exclude"]');
         this.justificationArea = document.getElementById('justification-area');
@@ -59,36 +51,41 @@ class ModalHandler {
         this.nextBtn.addEventListener('click', () => this.navigateNext());
         this.saveBtn.addEventListener('click', () => this.saveDecision());
 
-        const radios = document.querySelectorAll('input[name="decision"]');
-        radios.forEach(radio => {
+        document.querySelectorAll('input[name="decision"]').forEach(radio => {
             radio.addEventListener('change', () => this.handleDecisionChange());
         });
-
         this.justificationInput.addEventListener('input', () => {
             this.justCharCount.textContent = this.justificationInput.value.length;
         });
-
-        document.addEventListener('openCheckModal', (e) => {
-            this.openModal(e.detail.checkId);
-        });
+        document.addEventListener('openCheckModal', (e) => this.openModal(e.detail.checkId));
 
         document.addEventListener('keydown', (e) => {
-            if (this.modal.style.display !== 'none') {
-                if (e.key === 'Tab') {
-                    this.trapFocus(e);
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    this.closeModal();
-                } else if (e.key === 'ArrowLeft') {
-                    e.preventDefault();
-                    this.navigatePrevious();
-                } else if (e.key === 'ArrowRight') {
-                    e.preventDefault();
-                    this.navigateNext();
-                } else if (e.key === 'Enter' && e.ctrlKey) {
-                    e.preventDefault();
-                    this.saveDecision();
-                }
+            if (this.modal.style.display === 'none') return;
+            if (e.key === 'Tab') {
+                this.trapFocus(e);
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.closeModal();
+                return;
+            }
+
+            const target = e.target;
+            const editing = target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                target instanceof HTMLSelectElement ||
+                (target instanceof HTMLElement && target.isContentEditable);
+
+            if (e.key === 'ArrowLeft' && !editing) {
+                e.preventDefault();
+                this.navigatePrevious();
+            } else if (e.key === 'ArrowRight' && !editing) {
+                e.preventDefault();
+                this.navigateNext();
+            } else if (e.key === 'Enter' && e.ctrlKey && !e.repeat) {
+                e.preventDefault();
+                this.saveDecision();
             }
         });
     }
@@ -104,21 +101,19 @@ class ModalHandler {
         const focusableElements = this.getFocusableElements();
         if (focusableElements.length === 0) {
             event.preventDefault();
-            this.modal.focus();
             return;
         }
-
         const firstElement = focusableElements[0];
         const lastElement = focusableElements[focusableElements.length - 1];
         const activeElement = document.activeElement;
 
-        if (event.shiftKey && activeElement === firstElement) {
+        if (!focusableElements.includes(activeElement)) {
+            event.preventDefault();
+            firstElement.focus();
+        } else if (event.shiftKey && activeElement === firstElement) {
             event.preventDefault();
             lastElement.focus();
         } else if (!event.shiftKey && activeElement === lastElement) {
-            event.preventDefault();
-            firstElement.focus();
-        } else if (!this.modal.contains(activeElement)) {
             event.preventDefault();
             firstElement.focus();
         }
@@ -137,7 +132,6 @@ class ModalHandler {
         this.modal.style.display = 'none';
         document.body.style.overflow = 'auto';
         this.currentCheckId = null;
-
         if (this.previouslyFocusedElement instanceof HTMLElement &&
             document.contains(this.previouslyFocusedElement)) {
             this.previouslyFocusedElement.focus();
@@ -153,42 +147,29 @@ class ModalHandler {
                 showToast('Check not found', 'error');
                 return;
             }
-
             const decision = this.decisions[normalizedId] || { decision: 'unreviewed' };
-
             document.getElementById('detail-id').textContent = check.id;
             document.getElementById('detail-title').textContent = check.title;
             document.getElementById('detail-description').textContent = check.description || 'No description available';
 
-            const impactGroup = document.getElementById('impact-group');
-            if (check.impact) {
-                document.getElementById('detail-impact').textContent = check.impact;
-                impactGroup.style.display = 'flex';
-            } else {
-                impactGroup.style.display = 'none';
-            }
-
-            const rationaleGroup = document.getElementById('rationale-group');
-            if (check.rationale) {
-                document.getElementById('detail-rationale').textContent = check.rationale;
-                rationaleGroup.style.display = 'flex';
-            } else {
-                rationaleGroup.style.display = 'none';
-            }
-
-            const remediationGroup = document.getElementById('remediation-group');
-            if (check.remediation) {
-                document.getElementById('detail-remediation').textContent = check.remediation;
-                remediationGroup.style.display = 'flex';
-            } else {
-                remediationGroup.style.display = 'none';
-            }
+            const optional = [
+                ['impact', 'detail-impact'], ['rationale', 'detail-rationale'],
+                ['remediation', 'detail-remediation']
+            ];
+            optional.forEach(([field, detailId]) => {
+                const group = document.getElementById(`${field}-group`);
+                if (check[field]) {
+                    document.getElementById(detailId).textContent = check[field];
+                    group.style.display = 'flex';
+                } else {
+                    group.style.display = 'none';
+                }
+            });
 
             const complianceGroup = document.getElementById('compliance-group');
             const complianceEl = document.getElementById('detail-compliance');
             if (check.compliance && check.compliance.length > 0) {
-                const container = this.formatCompliance(check.compliance);
-                complianceEl.replaceChildren(container);
+                complianceEl.replaceChildren(this.formatCompliance(check.compliance));
                 complianceGroup.style.display = 'flex';
             } else {
                 complianceGroup.style.display = 'none';
@@ -205,7 +186,6 @@ class ModalHandler {
                 this.justificationInput.value = '';
                 this.justCharCount.textContent = '0';
             }
-
             this.updateNavigationButtons();
         } catch (error) {
             showToast('Error loading check details', 'error');
@@ -217,21 +197,18 @@ class ModalHandler {
         const container = document.createElement('ul');
         container.style.margin = '0';
         container.style.paddingLeft = '1.5rem';
-
         complianceList.forEach(comp => {
             Object.entries(comp).forEach(([key, values]) => {
                 if (values && values.length > 0) {
                     const li = document.createElement('li');
                     const strong = document.createElement('strong');
-                    const formattedKey = key.replace(/_/g, ' ').toUpperCase();
-                    strong.textContent = formattedKey + ': ';
+                    strong.textContent = key.replace(/_/g, ' ').toUpperCase() + ': ';
                     li.appendChild(strong);
                     li.appendChild(document.createTextNode(values.join(', ')));
                     container.appendChild(li);
                 }
             });
         });
-
         return container;
     }
 
@@ -245,34 +222,29 @@ class ModalHandler {
     }
 
     validateJustification() {
-        const excluded = this.excludeRadio.checked;
         const justification = this.justificationInput.value.trim();
-
-        if (excluded) {
-            if (!justification || justification.length < 10) {
-                return 'Justification must be at least 10 characters';
-            }
-            if (justification.length > 1000) {
-                return 'Justification must not exceed 1000 characters';
-            }
+        if (this.excludeRadio.checked) {
+            if (!justification || justification.length < 10) return 'Justification must be at least 10 characters';
+            if (justification.length > 1000) return 'Justification must not exceed 1000 characters';
             if (!isMeaningfulJustification(justification)) {
                 return 'Justification must contain meaningful text, not repeated characters';
             }
         }
-
         return null;
     }
 
     async saveDecision() {
+        if (this.saveInFlight) return;
         const validationError = this.validateJustification();
         if (validationError) {
             showToast(validationError, 'error');
             return;
         }
 
-        const excluded = this.excludeRadio.checked;
-        const decision = excluded ? 'exception' : 'accepted';
+        const decision = this.excludeRadio.checked ? 'exception' : 'accepted';
         const justification = this.justificationInput.value.trim();
+        this.saveInFlight = true;
+        this.saveBtn.disabled = true;
 
         try {
             const response = await fetch('/api/decision', {
@@ -284,9 +256,7 @@ class ModalHandler {
                     justification: justification
                 })
             });
-
             const data = await response.json();
-
             if (data.success) {
                 const normalized = data.decision;
                 this.decisions[this.currentCheckId] = normalized;
@@ -299,24 +269,25 @@ class ModalHandler {
         } catch (error) {
             showToast('Error saving decision', 'error');
             console.error(error);
+        } finally {
+            this.saveInFlight = false;
+            this.saveBtn.disabled = false;
         }
     }
 
     navigatePrevious() {
         const currentIndex = this.checks.findIndex(c => c.id === this.currentCheckId);
         if (currentIndex > 0) {
-            const prevCheck = this.checks[currentIndex - 1];
-            this.currentCheckId = prevCheck.id;
-            this.loadCheckData(prevCheck.id);
+            this.currentCheckId = this.checks[currentIndex - 1].id;
+            this.loadCheckData(this.currentCheckId);
         }
     }
 
     navigateNext() {
         const currentIndex = this.checks.findIndex(c => c.id === this.currentCheckId);
         if (currentIndex < this.checks.length - 1) {
-            const nextCheck = this.checks[currentIndex + 1];
-            this.currentCheckId = nextCheck.id;
-            this.loadCheckData(nextCheck.id);
+            this.currentCheckId = this.checks[currentIndex + 1].id;
+            this.loadCheckData(this.currentCheckId);
         }
     }
 

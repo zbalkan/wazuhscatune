@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,6 @@ SESSION_ID: re.Pattern[str] = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f
 
 
 def contained_path(root: str, name: str) -> Path:
-    """Return a path below root or reject traversal and absolute paths."""
     base: Path = Path(root).resolve()
     candidate: Path = (base / name).resolve()
     if candidate == base or base not in candidate.parents:
@@ -21,7 +21,6 @@ def contained_path(root: str, name: str) -> Path:
 
 
 def validate_contained(root: str, path: str) -> Path:
-    """Validate an existing absolute or relative path is beneath root."""
     base: Path = Path(root).resolve()
     candidate: Path = Path(path).resolve()
     if base not in candidate.parents:
@@ -45,15 +44,31 @@ class SessionService:
                               f"{self.validate_session_id(session_id)}.json")
 
     def save_draft(self, session_id: str, data: dict[str, Any]) -> bool:
+        temp_name: str | None = None
         try:
             payload: dict[str, Any] = dict(data)
             payload['last_saved'] = time.time()
-            with self._get_draft_path(session_id).open('w', encoding='utf-8') as stream:
+            destination = self._get_draft_path(session_id)
+            with tempfile.NamedTemporaryFile(
+                    mode='w', encoding='utf-8', dir=destination.parent,
+                    prefix=f'.{destination.name}.', suffix='.tmp', delete=False) as stream:
+                temp_name = stream.name
                 json.dump(payload, stream, indent=2, ensure_ascii=False)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp_name, destination)
+            temp_name = None
             return True
         except Exception:
             logger.exception("Unable to save draft %s", session_id)
             return False
+        finally:
+            if temp_name:
+                try:
+                    Path(temp_name).unlink(missing_ok=True)
+                except OSError:
+                    logger.warning("Unable to remove temporary draft %s", temp_name,
+                                   exc_info=True)
 
     def load_draft(self, session_id: str) -> dict[str, Any] | None:
         try:
@@ -76,7 +91,6 @@ class SessionService:
             return False
 
     def list_drafts(self) -> list[dict[str, Any]]:
-        """Return safe metadata for recoverable drafts, newest first."""
         drafts: list[dict[str, Any]] = []
         for path in Path(self.draft_folder).glob('*.json'):
             session_id = path.stem
