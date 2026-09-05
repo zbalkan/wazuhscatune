@@ -30,7 +30,7 @@ class CardManager {
 
             card.addEventListener('click', openCard);
             card.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
+                if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) {
                     event.preventDefault();
                     openCard();
                 }
