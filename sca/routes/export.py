@@ -54,7 +54,7 @@ def approval_page():
                              excluded_checks=excluded_checks)
     except Exception:
         logger.exception("Unable to load approval page")
-        return jsonify({'error': 'Unable to process SCA file.'}), 500
+        raise
 
 
 @export_bp.route('/api/export', methods=['POST'])
