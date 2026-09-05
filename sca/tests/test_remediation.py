@@ -124,6 +124,32 @@ def test_markdown_escape():
     assert escape_markdown_cell('a|b\r\nc\\d') == r'a\|b<br>c\\d'
 
 
+def test_markdown_export_neutralizes_uploaded_markup(tmp_path):
+    source = baseline()
+    source['policy']['name'] = '<img src=x onerror=alert(1)>'
+    source['checks'][0]['title'] = '<script>alert(1)</script> [click](javascript:alert(1)) | row'
+    path = tmp_path / 'base.yml'
+    write_yaml(path, source)
+    guide = Guide(str(path))
+    check = Check.from_dict(source['checks'][0])
+    tailoring = Tailoring('Safe [name](javascript:x)', 'safe', '<b>description</b>')
+    tailoring.decisions[check.id] = TailoringException(
+        justification='Needed because <img src=x onerror=alert(1)> [link](javascript:x)',
+        exception_check=check,
+    )
+
+    archive = export_policy(guide, tailoring, 'safe', str(tmp_path / 'exports'))
+    with zipfile.ZipFile(archive) as bundle:
+        markdown = bundle.read('safe_exceptions.md').decode('utf-8')
+
+    assert '<script>' not in markdown
+    assert '<img ' not in markdown
+    assert '<b>' not in markdown
+    assert '(javascript:' not in markdown
+    assert '&lt;script&gt;' in markdown
+    assert r'\[click\]\(javascript:alert\(1\)\)' in markdown
+
+
 @pytest.mark.parametrize('decision,justification,expected', [
     ('accepted', 'discarded text', {'decision': 'accepted'}),
     ('exception', 'A valid reason', {'decision': 'exception', 'justification': 'A valid reason'}),
