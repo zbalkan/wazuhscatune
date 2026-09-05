@@ -17,6 +17,7 @@ from sca.services.session_service import SessionService, contained_path
 
 upload_bp = Blueprint('upload', __name__)
 logger = logging.getLogger(__name__)
+MAX_ZIP_MEMBERS = 128
 
 
 def allowed_file(filename: str) -> bool:
@@ -39,8 +40,11 @@ def _save_uploaded_policy(file: FileStorage, session_id: str) -> str:
 
     try:
         with zipfile.ZipFile(file.stream) as archive:
+            members = archive.infolist()
+            if len(members) > MAX_ZIP_MEMBERS:
+                raise ValueError('ZIP contains too many files')
             yaml_members = [
-                item for item in archive.infolist()
+                item for item in members
                 if not item.is_dir() and Path(item.filename).suffix.lower() in {'.yml', '.yaml'}
             ]
             stems = {Path(item.filename).stem.lower() for item in yaml_members}
