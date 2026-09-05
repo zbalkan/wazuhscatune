@@ -20,14 +20,6 @@ def contained_path(root: str, name: str) -> Path:
     return candidate
 
 
-def validate_contained(root: str, path: str) -> Path:
-    base: Path = Path(root).resolve()
-    candidate: Path = Path(path).resolve()
-    if base not in candidate.parents:
-        raise ValueError("Path is outside the configured application directory")
-    return candidate
-
-
 class SessionService:
     def __init__(self, draft_folder: str) -> None:
         self.draft_folder = str(Path(draft_folder).resolve())
