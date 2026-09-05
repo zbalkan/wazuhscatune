@@ -64,4 +64,14 @@ jobs:
           PY
           )
           pipx list | grep -q "package wazuhscatune $EXPECTED_VERSION"
-          pipx list | grep -q "wazuhscatune"
+          wazuhscatune >/tmp/wazuhscatune.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for _ in {1..10}; do
+            if curl --fail --silent --show-error http://127.0.0.1:5000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wazuhscatune.log
+          exit 1
