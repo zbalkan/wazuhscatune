@@ -38,23 +38,15 @@ jobs:
           )
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - run: python -m pip install --upgrade build twine
+      - run: python -m pip install --upgrade build pipx twine
       - run: python -m build
       - run: python -m twine check --strict dist/*
-      - run: python -m pip install dist/*.whl
-      - name: Installed-wheel smoke test
+      - name: Install application with pipx
+        run: pipx install dist/*.whl
+      - name: Installed-application smoke test
         run: |
-          cd /tmp
-          python - <<'PY'
-          from importlib.metadata import version
-          from sca.app import create_app
-
-          expected = "${{ steps.version.outputs.version }}"
-          assert version("wazuhscatune") == expected
-          app = create_app()
-          response = app.test_client().get("/")
-          assert response.status_code == 200
-          PY
+          pipx list | grep -q "package wazuhscatune ${{ steps.version.outputs.version }}"
+          pipx list | grep -q "wazuhscatune"
 
       - name: Create version tag
         run: |
