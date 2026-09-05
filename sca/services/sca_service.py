@@ -1,5 +1,6 @@
 """SCA Service - Business logic for SCA operations."""
 import os
+import re
 from typing import Any
 
 from ruamel.yaml import YAML
@@ -7,7 +8,7 @@ from ruamel.yaml import YAML
 from sca.internal.guide import Guide
 from sca.internal.loosening import Tailoring, TailoringException
 from sca.internal.review import DecisionType, normalize_decisions
-from sca.internal.sca import SCA, Check
+from sca.internal.sca import SCA, Check, Compliance
 
 
 class SCAService:
@@ -59,11 +60,6 @@ class SCAService:
                 return False, "At least one check is required"
 
             ids = set()
-            compliance_fields = {
-                'cis', 'cis_csc_v8', 'cis_csc_v7', 'nist_sp_800-53',
-                'iso_27001-2013', 'cmmc_v2.0', 'pci_dss_v3.2.1',
-                'pci_dss_v4.0', 'soc_2', 'mitre_techniques',
-                'mitre_tactics', 'mitre_mitigations', 'hipaa'}
             for index, check in enumerate(checks):
                 location = f"checks[{index}]"
                 if not isinstance(check, dict):
@@ -98,9 +94,8 @@ class SCAService:
                     if not isinstance(compliance, dict):
                         return False, f"Check {check_id}: compliance[{comp_index}] must be a mapping"
                     for key, values in compliance.items():
-                        if key not in compliance_fields:
-                            return False, (f"Check {check_id}: compliance[{comp_index}].{key} "
-                                           "is not supported")
+                        if not isinstance(key, str) or not key.strip():
+                            return False, f"Check {check_id}: compliance framework names must be non-empty strings"
                         if not isinstance(values, list) or not all(
                                 isinstance(v, (str, int, float)) and not isinstance(v, bool)
                                 for v in values):
@@ -110,7 +105,6 @@ class SCAService:
             if 'variables' in data and not isinstance(data['variables'], dict):
                 return False, "Optional field 'variables' must be a mapping"
 
-            # Keep validation and parsing in lockstep: accepted input must load.
             SCA.from_dict(data)
             return True, None
 
@@ -150,18 +144,14 @@ class SCAService:
         return checks
 
     @staticmethod
-    def _serialize_compliance(compliance_list) -> list[dict[str, list[str]]]:
+    def _serialize_compliance(compliance_list: list[Compliance]) -> list[dict[str, list[str | int | float]]]:
+        """Serialize arbitrary frameworks without maintaining a framework whitelist."""
         result = []
         for comp in compliance_list:
-            comp_dict = {}
-            for field in ['cis', 'cis_csc_v8', 'cis_csc_v7', 'nist_sp_800_53',
-                          'iso_27001_2013', 'cmmc_v2_0', 'pci_dss_v3_2_1',
-                          'pci_dss_v4_0', 'soc_2', 'mitre_techniques',
-                          'mitre_tactics', 'mitre_mitigations', 'hipaa']:
-                value = getattr(comp, field, None)
-                if value:
-                    comp_dict[field] = value
-            result.append(comp_dict)
+            result.append({
+                re.sub(r'[.-]', '_', key): list(values)
+                for key, values in comp.values.items()
+            })
         return result
 
     @staticmethod

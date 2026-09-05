@@ -9,31 +9,20 @@ from typing import Any
 
 @dataclass
 class Compliance:
-    cis: list[str] | None
-    cis_csc_v8: list[str] | None
-    cis_csc_v7: list[str] | None
-    nist_sp_800_53: list[str] | None
-    iso_27001_2013: list[str] | None
-    cmmc_v2_0: list[str] | None
-    pci_dss_v3_2_1: list[str] | None
-    pci_dss_v4_0: list[str] | None
-    soc_2: list[str] | None
-    mitre_techniques: list[str] | None
-    mitre_tactics: list[str] | None
-    mitre_mitigations: list[str] | None
-    hipaa: list[str] | None
+    """Opaque compliance metadata preserved from the source policy."""
+    values: dict[str, list[str | int | float]]
 
     @staticmethod
     def from_dict(obj: Any) -> 'Compliance':
-        values = {
-            'cis': obj.get('cis'), 'cis_csc_v8': obj.get('cis_csc_v8'),
-            'cis_csc_v7': obj.get('cis_csc_v7'), 'nist_sp_800_53': obj.get('nist_sp_800-53'),
-            'iso_27001_2013': obj.get('iso_27001-2013'), 'cmmc_v2_0': obj.get('cmmc_v2.0'),
-            'pci_dss_v3_2_1': obj.get('pci_dss_v3.2.1'), 'pci_dss_v4_0': obj.get('pci_dss_v4.0'),
-            'soc_2': obj.get('soc_2'), 'mitre_techniques': obj.get('mitre_techniques'),
-            'mitre_tactics': obj.get('mitre_tactics'), 'mitre_mitigations': obj.get('mitre_mitigations'),
-            'hipaa': obj.get('hipaa')}
-        return Compliance(**{key: list(value) if value else None for key, value in values.items()})
+        return Compliance({key: list(value) for key, value in obj.items()})
+
+    def __getattr__(self, name: str):
+        # Preserve compatibility for simple keys such as ``cis`` without
+        # defining a closed set of compliance frameworks in the model.
+        try:
+            return self.values[name]
+        except KeyError as error:
+            raise AttributeError(name) from error
 
 
 @dataclass
