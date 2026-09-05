@@ -23,15 +23,6 @@ def _baseline_path() -> str:
     return str(contained_path(current_app.config['UPLOAD_FOLDER'], session['baseline_filename']))
 
 
-def _review_complete(guide: Guide, decisions: object) -> bool:
-    baseline_ids = {check.id for check in guide.sca.checks}
-    try:
-        normalized = normalize_decisions(decisions, baseline_ids, strict=True)
-    except ValueError:
-        return False
-    return set(normalized) == baseline_ids
-
-
 @export_bp.route('/approval')
 def approval_page() -> wResponse | str:
     if 'session_id' not in session or 'baseline_filename' not in session:
@@ -40,11 +31,14 @@ def approval_page() -> wResponse | str:
         guide = Guide(_baseline_path())
         checks = get_checks(guide)
         decisions = session.get('decisions', {})
-        if not _review_complete(guide, decisions):
+        baseline_ids = {check['id'] for check in checks}
+        try:
+            normalized = normalize_decisions(decisions, baseline_ids, strict=True)
+        except ValueError:
+            return redirect(url_for('review.review_page'))
+        if set(normalized) != baseline_ids:
             return redirect(url_for('review.review_page'))
 
-        normalized = normalize_decisions(
-            decisions, {check['id'] for check in checks}, strict=True)
         excluded_checks = [
             {
                 'id': check['id'],
