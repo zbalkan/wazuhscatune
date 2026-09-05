@@ -7,7 +7,6 @@
     <div class="review-header">
         <h2>{{ policy_name }}</h2>
         <div class="review-actions">
-            <button class="btn btn-secondary" id="save-draft-btn">Save Draft</button>
             <button class="btn btn-primary" id="review-decisions-btn" {% if stats.unreviewed %}disabled{% endif %}>Review Decisions</button>
         </div>
     </div>
@@ -125,20 +124,6 @@ window.statsData = {{ stats|tojson }};
 document.addEventListener('DOMContentLoaded', function() {
     const reviewPane = new ReviewPane(window.checksData, window.decisionsData, window.statsData);
     new FilterController(window.checksData, reviewPane);
-
-    document.getElementById('save-draft-btn').addEventListener('click', async function() {
-        try {
-            const response = await fetch('/api/save-draft', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'}
-            });
-            const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.error || 'Failed to save draft');
-            showToast('Draft saved successfully', 'success');
-        } catch (error) {
-            showToast(error.message || 'Error saving draft', 'error');
-        }
-    });
 
     document.getElementById('review-decisions-btn').addEventListener('click', function() {
         if (!this.disabled) window.location.href = '/approval';
