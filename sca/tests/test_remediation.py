@@ -35,10 +35,7 @@ def test_validation_rejects_incomplete_and_duplicate_checks(tmp_path):
     data = baseline()
     data['checks'][1]['id'] = 1
     write_yaml(path, data)
-    assert SCAService.validate_sca_file(str(path)) == (
-        False,
-        'Duplicate check ID: 1',
-    )
+    assert SCAService.validate_sca_file(str(path)) == (False, 'Duplicate check ID: 1')
     data = baseline()
     data['checks'][0]['id'] = '1'
     write_yaml(path, data)
@@ -55,15 +52,9 @@ def test_validation_accepts_dotted_compliance_keys(tmp_path):
     ]
     path = tmp_path / 'base.yml'
     write_yaml(path, data)
-    valid, message = SCAService.validate_sca_file(str(path))
-    assert (valid, message) == (True, None)
-
+    assert SCAService.validate_sca_file(str(path)) == (True, None)
     guide = Guide(str(path))
-    checks = SCAService.get_checks(guide)
-    compliance = checks[0]['compliance']
-    assert compliance[0] == {'cmmc_v2_0': ['AC.L1-3.1.1']}
-    assert compliance[1] == {'pci_dss_v3_2_1': ['7.1']}
-    assert compliance[2] == {'pci_dss_v4_0': ['7.1']}
+    assert SCAService.get_checks(guide)[0]['compliance'] == data['checks'][0]['compliance']
 
 
 def test_decision_api_validation_and_normalized_stats(tmp_path):
@@ -79,31 +70,18 @@ def test_decision_api_validation_and_normalized_stats(tmp_path):
         assert 400 <= response.status_code < 500
         with client.session_transaction() as sess:
             assert sess['decisions'] == {}
-    assert client.post(
-        '/api/decision',
-        data='{',
-        content_type='application/json',
-    ).status_code == 400
-    assert client.post(
-        '/api/decision',
-        json={'check_id': -1, 'decision': 'accepted'},
-    ).status_code == 404
-    response = client.post(
-        '/api/decision',
-        json={'check_id': '1', 'decision': 'accepted'},
-    )
+    assert client.post('/api/decision', data='{', content_type='application/json').status_code == 400
+    assert client.post('/api/decision', json={'check_id': -1, 'decision': 'accepted'}).status_code == 404
+    response = client.post('/api/decision', json={'check_id': '1', 'decision': 'accepted'})
     assert response.status_code == 200
     assert response.json['check_id'] == '1'
     with client.session_transaction() as sess:
         assert sess['decisions']['1'] == {'decision': 'accepted'}
-    response = client.post(
-        '/api/decision',
-        json={
-            'check_id': 1,
-            'decision': 'exception',
-            'justification': 'Needed | for\nlegacy \\ app',
-        },
-    )
+    response = client.post('/api/decision', json={
+        'check_id': 1,
+        'decision': 'exception',
+        'justification': 'Needed | for\nlegacy \\ app',
+    })
     assert response.status_code == 200
     assert response.json['stats'] == {
         'total': 2,
@@ -114,10 +92,7 @@ def test_decision_api_validation_and_normalized_stats(tmp_path):
         'reviewed': 1,
         'review_completion': 50.0,
     }
-    response = client.post(
-        '/api/decision',
-        json={'check_id': 1, 'decision': 'accepted'},
-    )
+    response = client.post('/api/decision', json={'check_id': 1, 'decision': 'accepted'})
     assert response.json['decision'] == {'decision': 'accepted'}
     assert response.json['stats']['accepted'] == 1
 
@@ -125,14 +100,11 @@ def test_decision_api_validation_and_normalized_stats(tmp_path):
 def test_decision_api_rejects_all_invalid_justification_types(tmp_path):
     client = app_with_session(tmp_path)
     for value in (None, 1, [], {}, 'x' * 1001):
-        response = client.post(
-            '/api/decision',
-            json={
-                'check_id': 1,
-                'decision': 'exception',
-                'justification': value,
-            },
-        )
+        response = client.post('/api/decision', json={
+            'check_id': 1,
+            'decision': 'exception',
+            'justification': value,
+        })
         assert response.status_code == 400
 
 
@@ -143,18 +115,13 @@ def test_export_invariants_provenance_markdown_and_archive(tmp_path):
     export_root = str(tmp_path / 'exports')
     write_yaml(path, source)
     guide = Guide(str(path))
-    loosening = SCAService.create_loosening(
-        'Tâiloréd policy',
-        'tailored',
-        'Unicode – açıklama',
-    )
-    check = Check.from_dict(source['checks'][0])
-    SCAService.add_decision(
-        loosening,
-        check,
+    tailoring = SCAService.create_tailoring('Tâiloréd policy', 'tailored', 'Unicode – açıklama')
+    SCAService.add_exception(
+        tailoring,
+        Check.from_dict(source['checks'][0]),
         'Needed | because\nlegacy \\ app',
     )
-    paths = ExportService.generate_files(guide, loosening, 'tailored', export_root)
+    paths = ExportService.generate_files(guide, tailoring, 'tailored', export_root)
     custom, exceptions_yml, exceptions_md, _ = paths
     yaml = YAML(typ='safe')
     with open(custom, encoding='utf-8') as stream:
@@ -188,19 +155,13 @@ def test_markdown_escape():
     'decision,justification,expected',
     [
         ('accepted', 'discarded text', {'decision': 'accepted'}),
-        (
-            'exception',
-            'A valid reason',
-            {'decision': 'exception', 'justification': 'A valid reason'},
-        ),
+        ('exception', 'A valid reason', {'decision': 'exception', 'justification': 'A valid reason'}),
     ],
 )
 def test_typed_decision_normalization(decision, justification, expected):
     value = ReviewDecision.create(1, decision, justification)
     assert value.to_session() == expected
-    assert normalize_decisions({'1': expected, '999': expected}, {1}) == {
-        1: value,
-    }
+    assert normalize_decisions({'1': expected, '999': expected}, {1}) == {1: value}
 
 
 @pytest.mark.parametrize(
@@ -223,14 +184,11 @@ def test_typed_decision_rejects_invalid_values(decision, justification):
 
 def test_decision_api_rejects_meaningless_exception_justification(tmp_path):
     client = app_with_session(tmp_path)
-    response = client.post(
-        '/api/decision',
-        json={
-            'check_id': 1,
-            'decision': 'exception',
-            'justification': '!' * 20,
-        },
-    )
+    response = client.post('/api/decision', json={
+        'check_id': 1,
+        'decision': 'exception',
+        'justification': '!' * 20,
+    })
     assert response.status_code == 400
     with client.session_transaction() as sess:
         assert sess['decisions'] == {}
@@ -266,43 +224,21 @@ def test_multiple_and_second_export_preserve_source(tmp_path):
     path = tmp_path / 'base.yml'
     write_yaml(path, source)
     guide = Guide(str(path))
-    tailoring = SCAService.create_loosening(
-        'Tailored Policy',
-        'tailored',
-        'Description',
-    )
+    tailoring = SCAService.create_tailoring('Tailored Policy', 'tailored', 'Description')
     for check_id in (1, 4):
-        SCAService.add_decision(
+        SCAService.add_exception(
             tailoring,
             Check.from_dict(source['checks'][check_id - 1]),
             f'Valid reason for {check_id}',
         )
     first = ExportService.generate_files(
-        guide,
-        tailoring,
-        'first',
-        str(tmp_path / 'exports'),
-    )[0]
-    empty = SCAService.create_loosening(
-        'Second Policy',
-        'second',
-        'Description',
-    )
+        guide, tailoring, 'first', str(tmp_path / 'exports'))[0]
+    empty = SCAService.create_tailoring('Second Policy', 'second', 'Description')
     second = ExportService.generate_files(
-        guide,
-        empty,
-        'second',
-        str(tmp_path / 'exports'),
-    )[0]
+        guide, empty, 'second', str(tmp_path / 'exports'))[0]
     yaml = YAML(typ='safe')
-    assert [
-        c['id']
-        for c in yaml.load(Path(first).read_text(encoding='utf-8'))['checks']
-    ] == [2, 3]
-    assert [
-        c['id']
-        for c in yaml.load(Path(second).read_text(encoding='utf-8'))['checks']
-    ] == [1, 2, 3, 4]
+    assert [c['id'] for c in yaml.load(Path(first).read_text(encoding='utf-8'))['checks']] == [2, 3]
+    assert [c['id'] for c in yaml.load(Path(second).read_text(encoding='utf-8'))['checks']] == [1, 2, 3, 4]
 
 
 def test_containment_and_expiry(tmp_path):
@@ -325,32 +261,20 @@ def test_containment_and_expiry(tmp_path):
 def test_archive_fails_for_missing_artifact(tmp_path):
     with pytest.raises(FileNotFoundError):
         ExportService.create_zip_archive(
-            [str(tmp_path / 'missing')],
-            'result.zip',
-            str(tmp_path),
-        )
+            [str(tmp_path / 'missing')], 'result.zip', str(tmp_path))
 
 
 def test_export_route_rejects_corrupt_state_and_all_exceptions(tmp_path):
     client = app_with_session(tmp_path)
     with client.session_transaction() as sess:
         sess['decisions'] = {
-            '1': {
-                'decision': 'exception',
-                'justification': 'too short',
-            },
+            '1': {'decision': 'exception', 'justification': 'too short'},
         }
     assert client.post('/api/export').status_code == 400
     with client.session_transaction() as sess:
         sess['decisions'] = {
-            '1': {
-                'decision': 'exception',
-                'justification': 'A valid first reason',
-            },
-            '2': {
-                'decision': 'exception',
-                'justification': 'A valid second reason',
-            },
+            '1': {'decision': 'exception', 'justification': 'A valid first reason'},
+            '2': {'decision': 'exception', 'justification': 'A valid second reason'},
         }
     response = client.post('/api/export')
     assert response.status_code == 400
@@ -379,4 +303,4 @@ def test_parser_supported_fields_and_missing_optionals():
     assert parsed.references == ['ref']
     assert parsed.rules == ['f:/one']
     assert parsed.regex_type == 'pcre2'
-    assert parsed.compliance[0].cis == ['1.1']
+    assert parsed.compliance[0]['cis'] == ['1.1']

@@ -1,109 +1,101 @@
 import hashlib
-import logging
 import os
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Final
 
 from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap, CommentedSeq
+from ruamel.yaml.comments import CommentedMap
 
 from sca.config import VERSION
-from sca.internal.loosening import Tailoring, TailoringException
-from sca.internal.sca import SCA, Check, Compliance
+from sca.internal.loosening import Tailoring
+from sca.internal.sca import SCA
 
 ENCODING: Final[str] = 'UTF-8'
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 def escape_markdown_cell(value: object) -> str:
-    """Escape a value for safe use in a Markdown table cell."""
     return (str(value).replace('\\', '\\\\').replace('|', '\\|')
             .replace('\r\n', '<br>').replace('\n', '<br>').replace('\r', '<br>'))
 
 
 class Guide:
-    __yaml__: YAML
-    __sca_yml__: CommentedMap
-    __tailoring__: Tailoring
-
     def __init__(self, baseline_path: str) -> None:
-        self.baseline_path: str = baseline_path
+        self.baseline_path = baseline_path
         self.__yaml__ = YAML()
-        self.__yaml__.register_class(Tailoring)
-        self.__yaml__.register_class(TailoringException)
-        self.__yaml__.register_class(Check)
-        self.__yaml__.register_class(Compliance)
-
-        with open(baseline_path, mode='r', encoding=ENCODING) as fs:
-            self.__sca_yml__ = CommentedMap(self.__yaml__.load(fs))
+        with open(baseline_path, mode='r', encoding=ENCODING) as stream:
+            self.__sca_yml__ = CommentedMap(self.__yaml__.load(stream))
         self.sca = SCA.from_dict(self.__sca_yml__)
 
-    def import_tailoring(self, tailoring: Tailoring) -> None:
-        self.__tailoring__ = tailoring
+    def export_custom(self, tailoring: Tailoring, custom_path: str) -> None:
+        custom = deepcopy(self.__sca_yml__)
+        policy = custom['policy']
+        policy['name'] = tailoring.name
+        policy['id'] = tailoring.id
+        policy['description'] = tailoring.description
+        policy['file'] = os.path.basename(custom_path)
+        custom['checks'][:] = [
+            check for check in custom['checks']
+            if check.get('id') not in tailoring.decisions
+        ]
+        with open(custom_path, mode='w', encoding=ENCODING) as stream:
+            self.__yaml__.dump(custom, stream)
 
-    def export_custom(self, custom_path: str) -> None:
-        # Round-trip through YAML to ensure nested checks are not shared with the
-        # immutable in-memory baseline.
-        from io import StringIO
-        buffer = StringIO()
-        self.__yaml__.dump(self.__sca_yml__, buffer)
-        custom = self.__yaml__.load(buffer.getvalue())
-        custom.get("policy")["name"] = self.__tailoring__.name
-        custom.get("policy")["id"] = self.__tailoring__.id
-        custom.get("policy")[
-            "description"] = self.__tailoring__.description
-        custom.get("policy")["file"] = os.path.basename(custom_path)
-
-        for check_id in self.__tailoring__.get_ids():
-            ccs: CommentedSeq = custom.get("checks")
-
-            for index, fi in enumerate(ccs):
-                if fi.get('id') == check_id:
-                    logger.debug("Removing check %s from baseline", check_id)
-
-                    custom.get("checks").pop(index)
-
-        with open(file=custom_path, mode='w', encoding=ENCODING) as fs:
-            self.__yaml__.dump(custom, fs)
-
-    def export_exceptions(self, yml_path: str, md_path: str) -> tuple[str, str]:
-        """Write provenance-rich YAML and Markdown exception records."""
+    def export_exceptions(self, tailoring: Tailoring,
+                          yml_path: str, md_path: str) -> tuple[str, str]:
         sca = self.sca
         with open(self.baseline_path, 'rb') as baseline:
             digest = hashlib.sha256(baseline.read()).hexdigest()
+
         record = {
-            'baseline': {'name': sca.policy.name, 'id': sca.policy.id,
-                         'file': sca.policy.file, 'sha256': digest},
-            'tailored_policy': {'name': self.__tailoring__.name,
-                                'id': self.__tailoring__.id,
-                                'file': f'{self.__tailoring__.id}.yml'},
+            'baseline': {
+                'name': sca.policy.name,
+                'id': sca.policy.id,
+                'file': sca.policy.file,
+                'sha256': digest,
+            },
+            'tailored_policy': {
+                'name': tailoring.name,
+                'id': tailoring.id,
+                'file': f'{tailoring.id}.yml',
+            },
             'generated_by': {'tool': 'wazuhscatune', 'version': VERSION},
             'generated_at': datetime.now(timezone.utc).isoformat(),
             'exceptions': [
-                {'check_id': check_id, 'title': decision.exception_check.title,
-                 'justification': decision.justification}
-                for check_id, decision in self.__tailoring__.decisions.items()
+                {
+                    'check_id': check_id,
+                    'title': decision.exception_check.title,
+                    'justification': decision.justification,
+                }
+                for check_id, decision in tailoring.decisions.items()
             ],
         }
 
-        with open(file=yml_path, mode='w', encoding=ENCODING) as fs:
-            self.__yaml__.dump(record, fs)
+        with open(yml_path, mode='w', encoding=ENCODING) as stream:
+            self.__yaml__.dump(record, stream)
 
-        with open(file=md_path, mode='w', encoding=ENCODING) as fs:
-            fs.write(f"# {escape_markdown_cell(self.__tailoring__.name)} Exception Record\n\n")
-            fs.write(
-                f"## {escape_markdown_cell(self.__tailoring__.name)} ({escape_markdown_cell(self.__tailoring__.id)})\n\n")
-            fs.write(f"{self.__tailoring__.description}\n\n")
-            fs.write(f"Baseline: {escape_markdown_cell(sca.policy.name)} "
-                     f"(`{escape_markdown_cell(sca.policy.id)}`)  \nSHA-256: `{digest}`\n\n")
-            fs.write("## Exceptions\n\n")
-            fs.write("| Check ID | Check Name | Justification |\n")
-            fs.write("| --- | --- | --- |\n")
-            for c_id, c in self.__tailoring__.decisions.items():
-                fs.write(
-                    f"| {c_id} | {escape_markdown_cell(c.exception_check.title)} | "
-                    f"{escape_markdown_cell(c.justification)} |\n")
-
-            fs.write("\n## Notes\n\n")
-            fs.write("Generated by `wazuhscatune`. Update the exception record and tailored policy together.\n")
+        with open(md_path, mode='w', encoding=ENCODING) as stream:
+            stream.write(f"# {escape_markdown_cell(tailoring.name)} Exception Record\n\n")
+            stream.write(
+                f"## {escape_markdown_cell(tailoring.name)} "
+                f"({escape_markdown_cell(tailoring.id)})\n\n"
+            )
+            stream.write(f"{tailoring.description}\n\n")
+            stream.write(
+                f"Baseline: {escape_markdown_cell(sca.policy.name)} "
+                f"(`{escape_markdown_cell(sca.policy.id)}`)  \n"
+                f"SHA-256: `{digest}`\n\n"
+            )
+            stream.write("## Exceptions\n\n")
+            stream.write("| Check ID | Check Name | Justification |\n")
+            stream.write("| --- | --- | --- |\n")
+            for check_id, decision in tailoring.decisions.items():
+                stream.write(
+                    f"| {check_id} | {escape_markdown_cell(decision.exception_check.title)} | "
+                    f"{escape_markdown_cell(decision.justification)} |\n"
+                )
+            stream.write(
+                "\n## Notes\n\nGenerated by `wazuhscatune`. "
+                "Update the exception record and tailored policy together.\n"
+            )
         return yml_path, md_path
