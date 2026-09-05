@@ -11,3 +11,4 @@ First public alpha release.
 - Added draft recovery and local cleanup of temporary application data.
 - Added tailored policy export with YAML and Markdown exception records.
 - Added cross-platform packaging, CI, and manual PyPI Trusted Publishing.
+- Established Python 3.10 as the minimum supported Python version, with Python 3.10 through 3.13 tested in CI.
