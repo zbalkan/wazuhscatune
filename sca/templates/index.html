@@ -7,9 +7,12 @@
     {% if drafts %}
     <div class="upload-container">
         <h2>Recover a draft</h2>
-        <ul>
+        <ul id="draft-list">
             {% for draft in drafts %}
-            <li><a href="{{ url_for('upload.recover_draft', session_id=draft.session_id) }}">{{ draft.custom_name }}</a></li>
+            <li>
+                <a href="{{ url_for('upload.recover_draft', session_id=draft.session_id) }}">{{ draft.custom_name }}</a>
+                <button type="button" class="btn btn-outline delete-draft-btn" data-draft-id="{{ draft.session_id }}">Delete</button>
+            </li>
             {% endfor %}
         </ul>
     </div>
@@ -71,6 +74,23 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.delete-draft-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+            const draftId = this.dataset.draftId;
+            if (!confirm('Delete this saved draft?')) return;
+            try {
+                const response = await fetch(`/api/drafts/${encodeURIComponent(draftId)}`, {method: 'DELETE'});
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Delete failed');
+                const item = this.closest('li');
+                if (item) item.remove();
+                showToast('Draft deleted', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to delete draft', 'error');
+            }
+        });
+    });
+
     const form = document.getElementById('upload-form');
     const fileInput = document.getElementById('file-input');
     const dropZone = document.getElementById('drop-zone');

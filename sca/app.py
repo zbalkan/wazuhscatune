@@ -14,6 +14,7 @@ from flask import Flask, render_template
 from flask_session import Session
 
 from sca.config import Config
+from sca.routes.drafts import drafts_bp
 from sca.routes.export import export_bp
 from sca.routes.review import review_bp
 from sca.routes.upload import upload_bp
@@ -100,6 +101,7 @@ def create_app(config_class=Config) -> Flask:
     app.register_blueprint(upload_bp)
     app.register_blueprint(review_bp)
     app.register_blueprint(export_bp)
+    app.register_blueprint(drafts_bp)
 
     @app.errorhandler(404)
     def not_found_error(error) -> tuple[str, Literal[404]]:
