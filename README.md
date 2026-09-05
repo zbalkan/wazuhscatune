@@ -1,14 +1,28 @@
 # wazuhscatune
 
-`wazuhscatune` is a local web application for tailoring a trusted Wazuh Security
-Configuration Assessment (SCA) baseline. Every baseline check is retained unless
-a reviewer records an explicit exception with a justification.
+`wazuhscatune` is a local helper for tailoring a trusted Wazuh Security
+Configuration Assessment (SCA) baseline. It runs a small local web interface so a
+single user can review a policy in a browser. Every baseline check is retained
+unless the reviewer records an explicit exception with a justification.
 
 The review model distinguishes:
 
 - **Unreviewed** — retained by default, but not yet explicitly reviewed.
 - **Accepted** — reviewed and retained.
 - **Exception** — reviewed, justified, and removed from the tailored policy.
+
+## Alpha compatibility contract
+
+Version `0.1.0` is the first public alpha. Supported Python versions are 3.10,
+3.11, 3.12, and 3.13 on current Windows, macOS, and Linux desktop environments.
+The application is intended for one user on the local machine. It is not a web
+service, server application, or multi-user application, and production deployment
+is explicitly unsupported.
+
+During the alpha series, persisted draft files and internal Python APIs may change
+without compatibility guarantees. The distribution name is `wazuhscatune`; the
+internal `sca` import package is an implementation detail and should not be used
+as a public API.
 
 ## Installation
 
@@ -26,7 +40,7 @@ python -m pip install -e '.[dev]'
 
 ## Run
 
-Start the local application with the installed command:
+Start the helper with the installed command:
 
 ```bash
 wazuhscatune
@@ -38,11 +52,14 @@ Alternatively, run the package module:
 python -m sca.app
 ```
 
-The server listens on `http://127.0.0.1:5000`. Set `FLASK_ENV=development`
-only for local development; that enables debug mode and external binding.
+The helper always listens on `http://127.0.0.1:5000`, opens the local browser,
+runs with Flask debug mode disabled, and disables the reloader. Flask's server
+banner and Werkzeug request log are suppressed to keep terminal output minimal;
+application diagnostics are written to a per-user log file instead.
 
-Set a stable `SECRET_KEY` in production. Without one, a random development key
-is generated at startup and existing browser sessions become invalid.
+The Flask server is only the local UI transport. Remote binding, production web
+servers, reverse proxies, TLS termination, and shared access are outside the
+supported use case.
 
 ## Workflow
 
@@ -59,7 +76,7 @@ Unreviewed checks remain in the tailored policy. Exception records identify the
 source baseline, its SHA-256 digest, the tailored policy, and the tool version.
 The uploaded baseline is never modified.
 
-## Drafts and cleanup
+## Local data and cleanup
 
 Review state is saved locally after each decision and through **Save Draft**. A
 known draft can be restored at `/recover/<session-id>` while its uploaded baseline
@@ -68,7 +85,15 @@ after 48 hours by default. Configure the interval with
 `WAZUHSCATUNE_FILE_TTL_HOURS`.
 
 The browser session lifetime is 24 hours. File operations are restricted to the
-configured upload, draft, and export directories.
+configured upload, draft, and export directories. Uploaded policies, draft state,
+session files, and exports are written to local disk until the cleanup interval
+removes them. This local data is the relevant privacy boundary: remove it when it
+is no longer needed.
+
+Application logs are also local. Their platform-specific location follows normal
+per-user conventions: `%LOCALAPPDATA%\wazuhscatune\Logs` on Windows,
+`~/Library/Logs/wazuhscatune` on macOS, and `$XDG_STATE_HOME/wazuhscatune`
+(or the documented local-share fallback) on Linux.
 
 ## Validation scope
 
@@ -77,17 +102,33 @@ unique integer check IDs, supported scalar and list types, compliance mappings,
 and obvious local consistency errors. `wazuhscatune` does not execute checks or
 attempt to reproduce the Wazuh SCA engine.
 
+The helper treats uploaded YAML and filenames as untrusted input even though it
+runs locally. Path handling, YAML parsing, upload limits, temporary-file cleanup,
+and export contents therefore remain security-relevant. Production web-server
+hardening, TLS termination, reverse proxies, persistent application secrets, and
+multi-user isolation are outside the supported use case.
+
 ## Development
 
-Run the tests with:
+Run the canonical checks with:
 
 ```bash
-pytest
+python -m pytest
+python -m pycodestyle sca
+python -m mypy sca
+python -m compileall -q sca
+python -m build
+python -m twine check --strict dist/*
 ```
 
+`pyproject.toml` is the authoritative dependency declaration. Legacy requirements
+files are intentionally not used for installation.
+
 The application intentionally does not perform SCA checks, recommend exceptions,
-rewrite rules, integrate with a Wazuh manager, or provide a multi-user workflow.
+rewrite rules, integrate with a Wazuh manager, provide a multi-user workflow, or
+support server deployment.
 
 ## License
 
-This project is licensed under the GNU General Public License v3 or later.
+This project is licensed under the GNU General Public License v3 or later. See
+`LICENSE`.
