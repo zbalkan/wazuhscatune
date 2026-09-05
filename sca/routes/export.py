@@ -156,22 +156,25 @@ def download_file() -> tuple[Response, Literal[400]] | tuple[Response, Literal[4
 
 @export_bp.route('/api/cleanup', methods=['POST'])
 def cleanup_session() -> Response | tuple[Response, Literal[500]]:
-    try:
-        baseline_filename = session.get('baseline_filename')
-        if isinstance(baseline_filename, str):
-            contained_path(current_app.config['UPLOAD_FOLDER'], baseline_filename).unlink(missing_ok=True)
+    session_id = session.get('session_id')
+    if isinstance(session_id, str):
+        if not SessionService(current_app.config['DRAFT_FOLDER']).delete_draft(session_id):
+            return jsonify({'error': 'Unable to clean up session.'}), 500
 
-        export_zip_path = session.get('export_zip_path')
-        if isinstance(export_zip_path, str):
+    baseline_filename = session.get('baseline_filename')
+    if isinstance(baseline_filename, str):
+        try:
+            contained_path(current_app.config['UPLOAD_FOLDER'], baseline_filename).unlink(missing_ok=True)
+        except (OSError, ValueError):
+            logger.warning('Unable to remove session baseline', exc_info=True)
+
+    export_zip_path = session.get('export_zip_path')
+    if isinstance(export_zip_path, str):
+        try:
             cleanup_export(str(validate_contained(
                 current_app.config['EXPORT_FOLDER'], export_zip_path)))
+        except ValueError:
+            logger.warning('Invalid session export path', exc_info=True)
 
-        session_id = session.get('session_id')
-        if isinstance(session_id, str):
-            SessionService(current_app.config['DRAFT_FOLDER']).delete_draft(session_id)
-
-        session.clear()
-        return jsonify({'success': True})
-    except Exception:
-        logger.exception("Unable to clean up session")
-        return jsonify({'error': 'Unable to clean up session.'}), 500
+    session.clear()
+    return jsonify({'success': True})
