@@ -56,7 +56,7 @@ class ReviewPane {
             showToast('Save this decision before moving to another check', 'error');
             return;
         }
-        const check = this.checks.find(item => item.id === id);
+        const check = this.checks.find(item => String(item.id) === id);
         if (!check) return;
 
         this.currentCheckId = id;
@@ -89,12 +89,12 @@ class ReviewPane {
 
     clearSelection() {
         this.currentCheckId = null;
-        this.dirty = false;
         this.list.querySelectorAll('.check-row').forEach(row => {
             row.classList.remove('selected');
             row.setAttribute('aria-current', 'false');
         });
-        this.updateNavigation();
+        this.previousButton.disabled = true;
+        this.saveNextButton.disabled = true;
     }
 
     setOptionalDetail(field, value) {
@@ -176,18 +176,20 @@ class ReviewPane {
             }));
             showToast('Decision saved', 'success');
 
-            const visibleIds = this.visibleIds();
-            const nextId = this.nextVisibleId(checkId);
-            if (nextId) {
-                this.selectCheck(nextId);
-            } else if (!visibleIds.includes(checkId)) {
-                if (visibleIds.length) this.selectCheck(visibleIds[0]);
-                else this.clearSelection();
+            const visible = this.visibleIds();
+            if (visible.includes(checkId)) {
+                const index = visible.indexOf(checkId);
+                if (index < visible.length - 1) this.selectCheck(visible[index + 1]);
+            } else if (visible.length) {
+                this.selectCheck(visible[0]);
+            } else {
+                this.clearSelection();
             }
         } catch (error) {
             showToast(error.message || 'Error saving decision', 'error');
         } finally {
             this.saveInFlight = false;
+            if (this.currentCheckId !== null) this.saveNextButton.disabled = false;
             this.updateNavigation();
         }
     }
@@ -250,12 +252,6 @@ class ReviewPane {
             .map(row => row.dataset.checkId);
     }
 
-    nextVisibleId(checkId) {
-        const ids = this.visibleIds();
-        const index = ids.indexOf(String(checkId));
-        return index >= 0 && index < ids.length - 1 ? ids[index + 1] : null;
-    }
-
     previousVisibleId(checkId) {
         const ids = this.visibleIds();
         const index = ids.indexOf(String(checkId));
@@ -269,7 +265,6 @@ class ReviewPane {
 
     updateNavigation() {
         this.previousButton.disabled = this.saveInFlight || !this.previousVisibleId(this.currentCheckId);
-        this.saveNextButton.disabled = this.saveInFlight || this.currentCheckId === null;
     }
 }
 
