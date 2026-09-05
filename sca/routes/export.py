@@ -13,7 +13,7 @@ from sca.internal.review import DecisionType, ReviewDecision, normalize_decision
 from sca.routes.upload import sanitize_policy_name
 from sca.services.export_service import cleanup_export, export_policy
 from sca.services.sca_service import calculate_stats, get_checks
-from sca.services.session_service import SessionService, contained_path, validate_contained
+from sca.services.session_service import SessionService, contained_path
 
 export_bp = Blueprint('export', __name__)
 logger = logging.getLogger(__name__)
@@ -114,7 +114,7 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
         previous = session.get('export_zip_path')
         if isinstance(previous, str):
             try:
-                previous_path = str(validate_contained(
+                previous_path = str(contained_path(
                     current_app.config['EXPORT_FOLDER'], previous))
             except ValueError:
                 pass
@@ -139,7 +139,7 @@ def download_file() -> tuple[Response, Literal[400]] | tuple[Response, Literal[4
     if 'export_zip_path' not in session:
         return jsonify({'error': 'No file to download'}), 400
     try:
-        zip_path = str(validate_contained(
+        zip_path = str(contained_path(
             current_app.config['EXPORT_FOLDER'], session['export_zip_path']))
     except (TypeError, ValueError):
         return jsonify({'error': 'Invalid download path'}), 400
@@ -169,7 +169,7 @@ def cleanup_session() -> Response | tuple[Response, Literal[500]]:
     export_zip_path = session.get('export_zip_path')
     if isinstance(export_zip_path, str):
         try:
-            cleanup_export(str(validate_contained(
+            cleanup_export(str(contained_path(
                 current_app.config['EXPORT_FOLDER'], export_zip_path)))
         except ValueError:
             logger.warning('Invalid session export path', exc_info=True)
