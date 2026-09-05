@@ -38,7 +38,7 @@
 
             <div class="check-list" id="check-list">
                 {% for check in checks %}
-                <button type="button" class="check-row" data-check-id="{{ check.id }}" data-impact="{{ check.impact|lower }}" aria-current="false">
+                <button type="button" class="check-row" data-check-id="{{ check.id }}" aria-current="false">
                     <span class="check-row-topline">
                         <span class="check-id">Check #{{ check.id }}</span>
                         <span class="card-status" data-status="unreviewed">Unreviewed</span>
@@ -111,7 +111,7 @@
 </div>
 
 <script>
-window.checksData = {{ checks_client|tojson }};
+window.checksData = {{ checks|tojson }};
 window.decisionsData = {{ decisions|tojson }};
 window.statsData = {{ stats|tojson }};
 </script>
