@@ -22,10 +22,18 @@ class CardManager {
     initializeCards() {
         const cards = this.grid.querySelectorAll('.check-card');
         cards.forEach(card => {
-            card.addEventListener('click', () => {
+            const openCard = () => {
                 const checkId = card.dataset.checkId;
                 const event = new CustomEvent('openCheckModal', { detail: { checkId } });
                 document.dispatchEvent(event);
+            };
+
+            card.addEventListener('click', openCard);
+            card.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openCard();
+                }
             });
         });
     }
