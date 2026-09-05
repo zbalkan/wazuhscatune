@@ -143,8 +143,10 @@ def _configure_logging() -> None:
 
 def main() -> None:
     """Run the single-user local web helper."""
+    logging_ready = False
     try:
         _configure_logging()
+        logging_ready = True
         logging.info('Starting')
 
         app = create_app()
@@ -156,14 +158,16 @@ def main() -> None:
         logging.info('Exiting.')
     except KeyboardInterrupt:
         print('Cancelled by user.')
-        logging.info('Cancelled by user.')
+        if logging_ready:
+            logging.info('Cancelled by user.')
         try:
             sys.exit(0)
         except SystemExit:
             os._exit(0)
     except Exception as ex:
         print('ERROR: ' + str(ex))
-        logging.error(str(ex), exc_info=True)
+        if logging_ready:
+            logging.error(str(ex), exc_info=True)
         try:
             sys.exit(1)
         except SystemExit:
