@@ -116,7 +116,6 @@ def get_checks(guide: Guide) -> list[dict[str, Any]]:
             'rationale': check.rationale or '',
             'remediation': check.remediation or '',
             'impact': check.impact,
-            'condition': check.condition,
             'compliance': [dict(item) for item in check.compliance] if check.compliance else [],
         }
         for check in guide.sca.checks
@@ -126,14 +125,13 @@ def get_checks(guide: Guide) -> list[dict[str, Any]]:
 def calculate_stats(guide: Guide, decisions: dict[str, Any]) -> dict[str, Any]:
     baseline_ids = {check.id for check in guide.sca.checks}
     normalized = normalize_decisions(decisions, baseline_ids)
-    accepted = sum(value.decision is DecisionType.ACCEPTED for value in normalized.values())
+    reviewed = len(normalized)
     exceptions = sum(value.decision is DecisionType.EXCEPTION for value in normalized.values())
     total = len(baseline_ids)
-    reviewed = accepted + exceptions
     return {
         'total': total,
         'unreviewed': total - reviewed,
-        'accepted': accepted,
+        'accepted': reviewed - exceptions,
         'exceptions': exceptions,
         'effective_included': total - exceptions,
         'reviewed': reviewed,
