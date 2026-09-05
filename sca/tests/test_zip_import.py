@@ -40,11 +40,11 @@ def _upload_data(file):
     }
 
 
-def _upload_zip(tmp_path, archive, name='policy.zip'):
+def _upload_zip(tmp_path, archive, filename='archive.zip'):
     archive.seek(0)
     return _client(tmp_path).post(
         '/upload',
-        data=_upload_data((archive, name)),
+        data=_upload_data((archive, filename)),
         content_type='multipart/form-data',
     )
 
@@ -104,24 +104,25 @@ def test_zip_import_rejects_too_many_members(tmp_path):
     with zipfile.ZipFile(archive, 'w') as bundle:
         bundle.writestr('policy.yml', _policy_yaml())
         for index in range(128):
-            bundle.writestr(f'empty-{index}.txt', '')
+            bundle.writestr(f'extra-{index}.txt', '')
 
-    response = _upload_zip(tmp_path, archive, 'many-members.zip')
+    response = _upload_zip(tmp_path, archive, 'many.zip')
     assert response.status_code == 400
     assert 'too many files' in response.json['error']
 
 
-def test_zip_import_rejects_large_decompressed_policy(tmp_path):
+def test_zip_import_rejects_oversized_expansion(tmp_path):
     archive = io.BytesIO()
+    payload = _policy_yaml() + b'\n#' + b'x' * (16 * 1024 * 1024)
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as bundle:
-        bundle.writestr('policy.yml', b'a' * (16 * 1024 * 1024 + 1))
+        bundle.writestr('policy.yml', payload)
 
-    response = _upload_zip(tmp_path, archive, 'compressed-large.zip')
+    response = _upload_zip(tmp_path, archive, 'bomb.zip')
     assert response.status_code == 400
     assert 'maximum upload size' in response.json['error']
 
 
-def test_zip_member_path_is_not_extracted(tmp_path):
+def test_zip_traversal_member_is_stored_safely(tmp_path):
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, 'w') as bundle:
         bundle.writestr('../../outside.yml', _policy_yaml())
@@ -134,7 +135,7 @@ def test_zip_member_path_is_not_extracted(tmp_path):
 
 def test_control_characters_are_removed_from_policy_filename():
     sanitized = sanitize_policy_name('Valid Policy\x00\n<script>')
-    assert sanitized == 'valid_policyscript'
+    assert sanitized == 'valid_policy_script'
     assert '\x00' not in sanitized and '\n' not in sanitized
 
 
@@ -142,17 +143,11 @@ def test_unsupported_zip_member_returns_bad_request(tmp_path, monkeypatch):
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, 'w') as bundle:
         bundle.writestr('policy.yml', _policy_yaml())
-    archive.seek(0)
 
     def unsupported(*args, **kwargs):
         raise NotImplementedError('unsupported compression')
 
     monkeypatch.setattr(zipfile.ZipFile, 'open', unsupported)
-    response = _client(tmp_path).post(
-        '/upload',
-        data=_upload_data((archive, 'unsupported.zip')),
-        content_type='multipart/form-data',
-    )
-
+    response = _upload_zip(tmp_path, archive, 'unsupported.zip')
     assert response.status_code == 400
     assert 'unsupported ZIP archive' in response.json['error']
