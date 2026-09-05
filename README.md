@@ -128,8 +128,6 @@ The application intentionally does not perform SCA checks, recommend exceptions,
 rewrite rules, integrate with a Wazuh manager, provide a multi-user workflow, or
 support server deployment.
 
-Release-readiness work is tracked in [`docs/release-roadmap.md`](docs/release-roadmap.md).
-
 ## License
 
 This project is licensed under the GNU General Public License v3 or later. See
