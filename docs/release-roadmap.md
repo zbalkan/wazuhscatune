@@ -31,6 +31,10 @@ This roadmap tracks release readiness for `wazuhscatune` 0.1.0. The benchmark is
 - [x] Open the local browser automatically and write diagnostics to a per-user log.
 - [x] Document that server deployment and multi-user use are unsupported.
 
+Uploaded YAML and filenames are still treated as untrusted input, as documented in the README. Path containment, validation of malformed policy structures, temporary-file expiry, draft recovery, corrupt-state handling, and exact export/archive invariants are application behaviors covered by the normal pytest suite. They remain security-relevant application invariants, but they are not duplicated here as separate release-process gates. P0 follows the same release model as `wazuhregex`: the supported test matrix must pass, and failures in these invariants fail that matrix like any other regression.
+
+This distinction does not remove those behaviors from scope; it avoids maintaining a second checklist that restates individual tests. Production web-server hardening, TLS termination, reverse proxies, persistent application secrets, authentication, authorization, and multi-user isolation remain outside the supported local-helper model.
+
 ### Release workflow
 
 - [x] Base publishing on the `wazuhregex` workflow.
@@ -58,4 +62,4 @@ Production-server support is not an objective. If the project ever changes from 
 
 ## 0.1.0 definition of done
 
-The alpha is ready when the documented OS/Python CI matrix is green, the built package passes `twine check`, the installed wheel passes the local application smoke test, and PyPI Trusted Publishing is configured for the manual release workflow.
+The alpha is ready when the documented OS/Python CI matrix is green, the built package passes `twine check`, the installed wheel passes the local application smoke test, and PyPI Trusted Publishing is configured for the manual release workflow. Application security invariants documented in the README are enforced through that pytest matrix rather than tracked as separate release-roadmap checkboxes.
