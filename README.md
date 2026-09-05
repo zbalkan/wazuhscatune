@@ -15,6 +15,10 @@ The review model distinguishes:
 
 Version `0.1.0` is the first public alpha. Supported Python versions are 3.10,
 3.11, 3.12, and 3.13 on current Windows, macOS, and Linux desktop environments.
+Support is revisited only when a dependency, Python lifecycle change, or concrete
+user need requires it; versions are not added or removed merely to track every
+new Python release.
+
 The application is intended for one user on the local machine. It is not a web
 service, server application, or multi-user application, and production deployment
 is explicitly unsupported.
@@ -108,6 +112,18 @@ and export contents therefore remain security-relevant. Production web-server
 hardening, TLS termination, reverse proxies, persistent application secrets, and
 multi-user isolation are outside the supported use case.
 
+## Troubleshooting
+
+If the browser does not open automatically, open `http://127.0.0.1:5000` manually.
+If startup reports that port 5000 is already in use, stop the other local process
+using that port and run `wazuhscatune` again. If the application reports a file or
+policy validation error, check that the input is YAML and follows the expected
+Wazuh SCA structure before retrying.
+
+For runtime diagnostics, check the per-user log location documented above. If the
+log directory itself cannot be created or written, the startup error is printed to
+the terminal instead.
+
 ## Development
 
 Run the canonical checks with:
@@ -121,12 +137,17 @@ python -m build
 python -m twine check --strict dist/*
 ```
 
+Tests are grouped by concern as the suite grows. Add regression tests for bugs
+that have actually occurred rather than expanding coverage speculatively.
+
 `pyproject.toml` is the authoritative dependency declaration. Legacy requirements
 files are intentionally not used for installation.
 
 The application intentionally does not perform SCA checks, recommend exceptions,
 rewrite rules, integrate with a Wazuh manager, provide a multi-user workflow, or
 support server deployment.
+
+Release history is kept in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
