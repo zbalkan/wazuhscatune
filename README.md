@@ -52,13 +52,14 @@ Alternatively, run the package module:
 python -m sca.app
 ```
 
-The application listens on `http://127.0.0.1:5000` and opens the local browser.
-Its Flask server is an implementation detail used to provide the local UI. Do not
-expose it to other hosts or deploy it behind a production web server.
+The helper always listens on `http://127.0.0.1:5000`, opens the local browser,
+runs with Flask debug mode disabled, and disables the reloader. Flask's server
+banner and Werkzeug request log are suppressed to keep terminal output minimal;
+application diagnostics are written to a per-user log file instead.
 
-`FLASK_ENV=development` is intended only for development of `wazuhscatune`; it
-enables Flask debug behavior and external binding. It is not an application
-deployment mode.
+The Flask server is only the local UI transport. Remote binding, production web
+servers, reverse proxies, TLS termination, and shared access are outside the
+supported use case.
 
 ## Workflow
 
@@ -88,6 +89,11 @@ configured upload, draft, and export directories. Uploaded policies, draft state
 session files, and exports are written to local disk until the cleanup interval
 removes them. This local data is the relevant privacy boundary: remove it when it
 is no longer needed.
+
+Application logs are also local. Their platform-specific location follows normal
+per-user conventions: `%LOCALAPPDATA%\wazuhscatune\Logs` on Windows,
+`~/Library/Logs/wazuhscatune` on macOS, and `$XDG_STATE_HOME/wazuhscatune`
+(or the documented local-share fallback) on Linux.
 
 ## Validation scope
 
