@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sca.internal.sca import Check
 
@@ -14,4 +14,4 @@ class Tailoring:
     name: str
     id: str
     description: str
-    decisions: dict[int, TailoringException]
+    decisions: dict[int, TailoringException] = field(default_factory=dict)
