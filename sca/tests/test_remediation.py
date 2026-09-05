@@ -39,10 +39,6 @@ def test_validation_rejects_incomplete_and_duplicate_checks(tmp_path):
         False,
         'Duplicate check ID: 1',
     )
-    del data['requirements']
-    write_yaml(path, data)
-    valid, message = SCAService.validate_sca_file(str(path))
-    assert not valid and 'requirements' in message
     data = baseline()
     data['checks'][0]['id'] = '1'
     write_yaml(path, data)

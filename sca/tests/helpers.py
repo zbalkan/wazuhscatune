@@ -17,6 +17,7 @@ def baseline(checks=None):
             'title': 'Linux',
             'description': 'Required',
             'condition': 'all',
+            'rules': ['f:/etc/passwd'],
         },
         'variables': {'$x': 1},
         'checks': checks if checks is not None else [

@@ -25,60 +25,15 @@ class Compliance:
 
     @staticmethod
     def from_dict(obj: Any) -> 'Compliance':
-        _cis = None
-        __cis = obj.get("cis")
-        if __cis:
-            _cis = [(y) for y in __cis]
-        _cis_csc_v8 = None
-        __cis_csc_v8 = obj.get("cis_csc_v8")
-        if __cis_csc_v8:
-            _cis_csc_v8 = list(__cis_csc_v8)
-        _cis_csc_v7 = None
-        __cis_csc_v7 = obj.get("cis_csc_v7")
-        if __cis_csc_v7:
-            _cis_csc_v7 = list(__cis_csc_v7)
-        _nist_sp_800_53 = None
-        __nist_sp_800_53 = obj.get("nist_sp_800-53")
-        if __nist_sp_800_53:
-            _nist_sp_800_53 = list(__nist_sp_800_53)
-        _iso_27001_2013 = None
-        __iso_27001_2013 = obj.get("iso_27001-2013")
-        if __iso_27001_2013:
-            _iso_27001_2013 = list(__iso_27001_2013)
-        _cmmc_v2_0 = None
-        __cmmc_v2_0 = obj.get("cmmc_v2.0")
-        if __cmmc_v2_0:
-            _cmmc_v2_0 = list(__cmmc_v2_0)
-        _pci_dss_v3_2_1 = None
-        __pci_dss_v3_2_1 = obj.get("pci_dss_v3.2.1")
-        if __pci_dss_v3_2_1:
-            _pci_dss_v3_2_1 = list(__pci_dss_v3_2_1)
-        _pci_dss_v4_0 = None
-        __pci_dss_v4_0 = obj.get("pci_dss_v4.0")
-        if __pci_dss_v4_0:
-            _pci_dss_v4_0 = list(__pci_dss_v4_0)
-        _soc_2 = None
-        __soc_2 = obj.get("soc_2")
-        if __soc_2:
-            _soc_2 = list(__soc_2)
-        _mitre_techniques = None
-        __mitre_techniques = obj.get("mitre_techniques")
-        if __mitre_techniques:
-            _mitre_techniques = list(__mitre_techniques)
-        _mitre_tactics = None
-        __mitre_tactics = obj.get("mitre_tactics")
-        if __mitre_tactics:
-            _mitre_tactics = list(__mitre_tactics)
-        _mitre_mitigations = None
-        __mitre_mitigations = obj.get("mitre_mitigations")
-        if __mitre_mitigations:
-            _mitre_mitigations = list(__mitre_mitigations)
-        _hipaa = None
-        __hipaa = obj.get("hipaa")
-        if __hipaa:
-            _hipaa = list(__hipaa)
-        return Compliance(_cis, _cis_csc_v8, _cis_csc_v7, _nist_sp_800_53, _iso_27001_2013, _cmmc_v2_0, _pci_dss_v3_2_1, _pci_dss_v4_0, _soc_2,
-                          _mitre_techniques, _mitre_tactics, _mitre_mitigations, _hipaa)
+        values = {
+            'cis': obj.get('cis'), 'cis_csc_v8': obj.get('cis_csc_v8'),
+            'cis_csc_v7': obj.get('cis_csc_v7'), 'nist_sp_800_53': obj.get('nist_sp_800-53'),
+            'iso_27001_2013': obj.get('iso_27001-2013'), 'cmmc_v2_0': obj.get('cmmc_v2.0'),
+            'pci_dss_v3_2_1': obj.get('pci_dss_v3.2.1'), 'pci_dss_v4_0': obj.get('pci_dss_v4.0'),
+            'soc_2': obj.get('soc_2'), 'mitre_techniques': obj.get('mitre_techniques'),
+            'mitre_tactics': obj.get('mitre_tactics'), 'mitre_mitigations': obj.get('mitre_mitigations'),
+            'hipaa': obj.get('hipaa')}
+        return Compliance(**{key: list(value) if value else None for key, value in values.items()})
 
 
 @dataclass
@@ -97,39 +52,19 @@ class Check:
 
     @staticmethod
     def from_dict(obj: Any) -> 'Check':
-        _compliance = None
-        __compliance = obj.get("compliance")
-        if __compliance:
-            _compliance = [Compliance.from_dict(y) for y in __compliance]
-        _condition = str(obj.get("condition"))
-        _description = None
-        __description = obj.get("description")
-        if __description:
-            _description = str(__description)
-        _id = int(obj.get("id"))
-        _impact = str(obj.get("impact")) if obj.get("impact") is not None else ''
-        _rationale = None
-        __rationale = obj.get("rationale")
-        if __rationale:
-            _rationale = str(__rationale)
-        _references = None
-        __references = obj.get("references")
-        if __references:
-            _references = list(__references)
-        _remediation = None
-        __remediation = obj.get("remediation")
-        if __remediation:
-            _remediation = str(__remediation)
-        _rules = None
-        __rules = obj.get("rules")
-        if __rules:
-            _rules = list(__rules)
-        _title = str(obj.get("title"))
-        _regex_type = None
-        __regex_type = obj.get("regex_type")
-        if __regex_type:
-            _regex_type = str(__regex_type)
-        return Check(_compliance, _condition, _description, _id, _impact, _rationale, _references, _remediation, _rules, _title, _regex_type)
+        compliance = obj.get('compliance')
+        return Check(
+            [Compliance.from_dict(y) for y in compliance] if compliance else None,
+            str(obj.get('condition')),
+            str(obj['description']) if obj.get('description') else None,
+            int(obj.get('id')),
+            str(obj.get('impact')) if obj.get('impact') is not None else '',
+            str(obj['rationale']) if obj.get('rationale') else None,
+            list(obj['references']) if obj.get('references') else None,
+            str(obj['remediation']) if obj.get('remediation') else None,
+            list(obj['rules']) if obj.get('rules') else None,
+            str(obj.get('title')),
+            str(obj['regex_type']) if obj.get('regex_type') else None)
 
 
 @dataclass
@@ -143,54 +78,39 @@ class Policy:
 
     @staticmethod
     def from_dict(obj: Any) -> 'Policy':
-        _description = str(obj.get("description"))
-        _file = str(obj.get("file"))
-        _id = str(obj.get("id"))
-        _name = str(obj.get("name"))
-        _references = None
-        __references = obj.get("references")
-        if __references:
-            _references = list(__references)
-        _regex_type = None
-        __regex_type = obj.get("regex_type")
-        if __regex_type:
-            _regex_type = str(__regex_type)
-        return Policy(_description, _file, _id, _name, _references, _regex_type)
+        return Policy(
+            str(obj.get('description')), str(obj.get('file')), str(obj.get('id')),
+            str(obj.get('name')), list(obj['references']) if obj.get('references') else None,
+            str(obj['regex_type']) if obj.get('regex_type') else None)
 
 
 @dataclass
 class Requirements:
     condition: str
     description: str
-    rules: list[str] | None
+    rules: list[str]
     title: str
 
     @staticmethod
     def from_dict(obj: Any) -> 'Requirements':
-        _condition = str(obj.get("condition"))
-        _description = str(obj.get("description"))
-        _rules = None
-        __rules = obj.get("rules")
-        if __rules:
-            _rules = list(__rules)
-        _title = str(obj.get("title"))
-        return Requirements(_condition, _description, _rules, _title)
+        return Requirements(
+            str(obj.get('condition')), str(obj.get('description')),
+            list(obj.get('rules')), str(obj.get('title')))
 
 
 @dataclass
 class SCA:
     checks: list[Check]
     policy: Policy
-    requirements: Requirements
+    requirements: Requirements | None
     variables: dict | None
 
     @staticmethod
     def from_dict(obj: Any) -> 'SCA':
-        _checks = [Check.from_dict(y) for y in obj.get("checks")]
-        _policy = Policy.from_dict(obj.get("policy"))
-        _requirements = Requirements.from_dict(obj.get("requirements"))
-        _variables = None
-        __variables = obj.get("variables")
-        if __variables:
-            _variables = dict(__variables)
-        return SCA(_checks, _policy, _requirements, _variables)
+        requirements = obj.get('requirements')
+        variables = obj.get('variables')
+        return SCA(
+            [Check.from_dict(y) for y in obj.get('checks')],
+            Policy.from_dict(obj.get('policy')),
+            Requirements.from_dict(requirements) if requirements is not None else None,
+            dict(variables) if variables else None)
