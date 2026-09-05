@@ -22,6 +22,12 @@ def _baseline_path() -> str:
     return str(contained_path(current_app.config['UPLOAD_FOLDER'], session['baseline_filename']))
 
 
+def _review_complete(guide: Guide, decisions: object) -> bool:
+    baseline_ids = {check.id for check in guide.sca.checks}
+    normalized = normalize_decisions(decisions, baseline_ids)
+    return set(normalized) == baseline_ids
+
+
 @export_bp.route('/approval')
 def approval_page() -> wResponse | str:
     if 'session_id' not in session or 'baseline_filename' not in session:
@@ -30,6 +36,9 @@ def approval_page() -> wResponse | str:
         guide = Guide(_baseline_path())
         checks = get_checks(guide)
         decisions = session.get('decisions', {})
+        if not _review_complete(guide, decisions):
+            return redirect(url_for('review.review_page'))
+
         normalized = normalize_decisions(decisions, {check['id'] for check in checks})
         excluded_checks = [
             {
@@ -38,8 +47,7 @@ def approval_page() -> wResponse | str:
                 'justification': normalized[check['id']].justification or '',
             }
             for check in checks
-            if check['id'] in normalized
-            and normalized[check['id']].decision is DecisionType.EXCEPTION
+            if normalized[check['id']].decision is DecisionType.EXCEPTION
         ]
         return render_template(
             'approval.html',
@@ -67,6 +75,9 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
                 decisions, baseline_ids, strict=True)
         except ValueError:
             return jsonify({'error': 'Review state is invalid; review the affected checks again.'}), 400
+
+        if set(normalized) != baseline_ids:
+            return jsonify({'error': 'All checks must be reviewed before export.'}), 400
 
         excluded_ids = {
             check_id for check_id, value in normalized.items()
