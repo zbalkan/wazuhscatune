@@ -37,6 +37,24 @@ jobs:
           )
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - run: python -m pip install --upgrade build twine
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python -m pip install dist/*.whl
+      - name: Installed-wheel smoke test
+        run: |
+          cd /tmp
+          python - <<'PY'
+          from importlib.metadata import version
+          from sca.app import create_app
+
+          expected = "${{ steps.version.outputs.version }}"
+          assert version("wazuhscatune") == expected
+          app = create_app()
+          response = app.test_client().get("/")
+          assert response.status_code == 200
+          PY
+
       - name: Create version tag
         run: |
           TAG="v${{ steps.version.outputs.version }}"
@@ -55,23 +73,6 @@ jobs:
             git push origin "$TAG"
           fi
 
-      - run: python -m pip install --upgrade build twine
-      - run: python -m build
-      - run: python -m twine check dist/*
-      - run: python -m pip install dist/*.whl
-      - name: Installed-wheel smoke test
-        run: |
-          cd /tmp
-          python - <<'PY'
-          from importlib.metadata import version
-          from sca.app import create_app
-
-          expected = "${{ steps.version.outputs.version }}"
-          assert version("wazuhscatune") == expected
-          app = create_app()
-          response = app.test_client().get("/")
-          assert response.status_code == 200
-          PY
       - uses: actions/upload-artifact@v7
         with:
           name: python-package-distributions
