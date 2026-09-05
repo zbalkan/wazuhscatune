@@ -384,6 +384,21 @@ a:hover {
     gap: var(--spacing-xl);
 }
 
+.filter-group {
+    border: 0;
+    padding: 0;
+    margin: 0 0 var(--spacing-lg);
+    min-width: 0;
+}
+
+.filter-group legend,
+.filter-group > label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+    color: var(--color-text);
+}
+
 /* Approval Page */
 .approval-header {
     margin-bottom: var(--spacing-xl);
