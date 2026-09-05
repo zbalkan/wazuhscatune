@@ -219,13 +219,15 @@ def test_draft_round_trip_and_recovery(tmp_path):
     client = app_with_session(tmp_path)
     with client.session_transaction() as sess:
         session_id = sess['session_id']
-    assert client.post('/api/save-draft').status_code == 200
+    assert client.post('/api/decision', json={
+        'check_id': 1, 'decision': 'accepted'}).status_code == 200
     with client.session_transaction() as sess:
         sess.clear()
     assert client.get(f'/recover/{session_id}').status_code == 302
     with client.session_transaction() as sess:
         assert sess['baseline_filename'] == 'base.yml'
         assert sess['sanitized_name'] == 'a_tailored_policy'
+        assert sess['decisions']['1'] == {'decision': 'accepted'}
 
 
 def test_parser_supported_fields_and_missing_optionals():
