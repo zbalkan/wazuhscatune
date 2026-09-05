@@ -74,4 +74,4 @@ def app_with_session(tmp_path):
             custom_description='Description',
             decisions={},
         )
-    return app, client, path
+    return client
