@@ -75,3 +75,12 @@ def test_structural_amplification_is_rejected(tmp_path):
     valid, message = _validate(tmp_path, data)
     assert not valid
     assert message == 'SCA file is too structurally complex'
+
+
+def test_nested_variables_count_toward_structure_limit(tmp_path, monkeypatch):
+    monkeypatch.setattr('sca.services.sca_service.MAX_STRUCTURE_ITEMS', 30)
+    data = baseline()
+    data['variables'] = {'nested': {str(index): {'value': index} for index in range(10)}}
+    valid, message = _validate(tmp_path, data)
+    assert not valid
+    assert message == 'SCA file is too structurally complex'
