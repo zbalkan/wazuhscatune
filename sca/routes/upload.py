@@ -180,11 +180,20 @@ def delete_draft(session_id: str) -> Response | tuple[Response, Literal[400]] | 
         return jsonify({'error': 'Draft not found'}), 404
 
     try:
+        baseline_path = None
         baseline_filename = data.get('baseline_filename')
         if isinstance(baseline_filename, str):
-            contained_path(current_app.config['UPLOAD_FOLDER'], baseline_filename).unlink(missing_ok=True)
+            baseline_path = contained_path(current_app.config['UPLOAD_FOLDER'], baseline_filename)
+
         if not service.delete_draft(session_id):
             return jsonify({'error': 'Unable to delete draft'}), 500
+
+        if baseline_path is not None:
+            try:
+                baseline_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning('Unable to remove baseline for deleted draft %s', session_id, exc_info=True)
+
         if session.get('session_id') == session_id:
             session.clear()
         return jsonify({'success': True, 'session_id': session_id})
