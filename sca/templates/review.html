@@ -27,9 +27,9 @@
     <div class="review-content">
         <aside class="filter-sidebar">
             <h3>Filters</h3>
-            
-            <div class="filter-group">
-                <label>Status</label>
+
+            <fieldset class="filter-group">
+                <legend>Status</legend>
                 <div class="filter-options">
                     <label class="filter-option">
                         <input type="checkbox" name="status" value="accepted" checked>
@@ -44,15 +44,15 @@
                         <span>Unreviewed</span>
                     </label>
                 </div>
+            </fieldset>
+
+            <div class="filter-group">
+                <label for="search-input">Search</label>
+                <input type="text" class="filter-search" id="search-input" placeholder="Search checks...">
             </div>
 
             <div class="filter-group">
-                <label>Search</label>
-                <input type="text" class="filter-search" id="search-input" placeholder="Search checks...">
-            </div>
-            
-            <div class="filter-group">
-                <label>Impact Search</label>
+                <label for="impact-search-input">Impact Search</label>
                 <input type="text" class="filter-search" id="impact-search-input" placeholder="Search by impact...">
             </div>
 
@@ -132,8 +132,8 @@
 
                     <div class="justification-area" id="justification-area" style="display: none;">
                         <label for="justification-input">Justification <span class="required">*</span></label>
-                        <textarea id="justification-input" class="form-textarea" 
-                                  placeholder="Enter justification (10-1000 characters)" 
+                        <textarea id="justification-input" class="form-textarea"
+                                  placeholder="Enter justification (10-1000 characters)"
                                   minlength="10" maxlength="1000" rows="4"></textarea>
                         <div class="char-count"><span id="just-char-count">0</span>/1000</div>
                         <div class="validation-feedback" id="just-validation"></div>
@@ -150,8 +150,8 @@
 </div>
 
 <script>
-// Pass data to JavaScript
-window.checksData = {{ checks|tojson }};
+// Serialize IDs as strings so browser number precision cannot alter valid SCA IDs.
+window.checksData = {{ checks_client|tojson }};
 window.decisionsData = {{ decisions|tojson }};
 window.statsData = {{ stats|tojson }};
 </script>
@@ -161,14 +161,12 @@ window.statsData = {{ stats|tojson }};
 <script src="{{ url_for('static', filename='js/card-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modal-handler.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filter-controller.js') }}"></script>
-<script src="{{ url_for('static', filename='js/storage-manager.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const cardManager = new CardManager(window.checksData, window.decisionsData, window.statsData);
     new ModalHandler(window.checksData, window.decisionsData, cardManager);
     new FilterController(window.checksData, cardManager);
-    new StorageManager();
-    
+
     // Save draft button
     document.getElementById('save-draft-btn').addEventListener('click', function() {
         fetch('/api/save-draft', {
