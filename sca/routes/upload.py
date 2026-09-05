@@ -1,5 +1,4 @@
 """Upload and draft lifecycle routes."""
-import io
 import logging
 import os
 import re
@@ -39,7 +38,7 @@ def _save_uploaded_policy(file: FileStorage, session_id: str) -> str:
         return path
 
     try:
-        with zipfile.ZipFile(io.BytesIO(file.read())) as archive:
+        with zipfile.ZipFile(file.stream) as archive:
             policies = [
                 item for item in archive.infolist()
                 if not item.is_dir()
