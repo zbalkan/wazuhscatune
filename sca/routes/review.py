@@ -104,16 +104,3 @@ def save_decision() -> tuple[Response, Literal[400]] | tuple[Response, Literal[4
     except Exception:
         logger.exception("Unable to save review decision")
         return jsonify({'error': 'Unable to save review state.'}), 500
-
-
-@review_bp.route('/api/save-draft', methods=['POST'])
-def manual_save_draft() -> tuple[Response, Literal[400]] | Response | tuple[Response, Literal[500]]:
-    if 'session_id' not in session:
-        return jsonify({'error': 'No active session'}), 400
-    try:
-        if _save_draft(session.get('decisions', {})):
-            return jsonify({'success': True})
-        return jsonify({'error': 'Failed to save draft'}), 500
-    except Exception:
-        logger.exception("Unable to save draft")
-        return jsonify({'error': 'Unable to save review state.'}), 500
