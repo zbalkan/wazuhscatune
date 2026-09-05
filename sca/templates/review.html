@@ -62,7 +62,8 @@
         <div class="cards-area">
             <div class="cards-grid" id="cards-grid">
                 {% for check in checks %}
-                <div class="check-card" data-check-id="{{ check.id }}" data-impact="{{ check.impact|lower }}">
+                <div class="check-card" data-check-id="{{ check.id }}" data-impact="{{ check.impact|lower }}"
+                     role="button" tabindex="0" aria-haspopup="dialog">
                     <div class="card-header">
                         <span class="check-id">Check #{{ check.id }}</span>
                     </div>
