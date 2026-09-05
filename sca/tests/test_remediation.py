@@ -2,7 +2,6 @@ import copy
 import os
 import time
 import zipfile
-from pathlib import Path
 
 import pytest
 from ruamel.yaml import YAML
@@ -11,7 +10,7 @@ from sca.internal.guide import Guide, escape_markdown_cell
 from sca.internal.review import ReviewDecision, normalize_decisions
 from sca.internal.sca import Check
 from sca.services.export_service import export_policy
-from sca.services.sca_service import SCAService
+from sca.services.sca_service import add_exception, create_tailoring, get_checks, validate_sca_file
 from sca.services.session_service import SessionService, contained_path, validate_contained
 from sca.tests.helpers import app_with_session, baseline, write_yaml
 
@@ -31,7 +30,7 @@ def test_rationale_populated_empty_and_absent(tmp_path):
     assert parsed[1].rationale is None
     del data['checks'][1]['rationale']
     assert Check.from_dict(data['checks'][1]).rationale is None
-    assert SCAService.get_checks(guide)[1]['rationale'] == ''
+    assert get_checks(guide)[1]['rationale'] == ''
 
 
 def test_validation_rejects_incomplete_and_duplicate_checks(tmp_path):
@@ -39,11 +38,11 @@ def test_validation_rejects_incomplete_and_duplicate_checks(tmp_path):
     data = baseline()
     data['checks'][1]['id'] = 1
     write_yaml(path, data)
-    assert SCAService.validate_sca_file(str(path)) == (False, 'Duplicate check ID: 1')
+    assert validate_sca_file(str(path)) == (False, 'Duplicate check ID: 1')
     data = baseline()
     data['checks'][0]['id'] = '1'
     write_yaml(path, data)
-    valid, message = SCAService.validate_sca_file(str(path))
+    valid, message = validate_sca_file(str(path))
     assert not valid and 'integer' in message
 
 
@@ -56,8 +55,8 @@ def test_validation_accepts_dotted_compliance_keys(tmp_path):
     ]
     path = tmp_path / 'base.yml'
     write_yaml(path, data)
-    assert SCAService.validate_sca_file(str(path)) == (True, None)
-    assert SCAService.get_checks(Guide(str(path)))[0]['compliance'] == data['checks'][0]['compliance']
+    assert validate_sca_file(str(path)) == (True, None)
+    assert get_checks(Guide(str(path)))[0]['compliance'] == data['checks'][0]['compliance']
 
 
 def test_decision_api_validation_and_normalized_stats(tmp_path):
@@ -96,9 +95,9 @@ def test_export_preserves_source_and_writes_provenance(tmp_path):
     path = tmp_path / 'base.yml'
     write_yaml(path, source)
     guide = Guide(str(path))
-    tailoring = SCAService.create_tailoring('Tâiloréd policy', 'tailored', 'Unicode – açıklama')
-    SCAService.add_exception(
-        tailoring, Check.from_dict(source['checks'][0]), 'Needed | because\nlegacy \\ app')
+    tailoring = create_tailoring('Tâiloréd policy', 'tailored', 'Unicode – açıklama')
+    add_exception(tailoring, Check.from_dict(source['checks'][0]),
+                  'Needed | because\nlegacy \\ app')
 
     archive = export_policy(guide, tailoring, 'tailored', str(tmp_path / 'exports'))
     with zipfile.ZipFile(archive) as bundle:
@@ -159,7 +158,7 @@ def test_validation_rejects_nested_optional_types(tmp_path):
         data = baseline()
         data['checks'][0][field] = value
         write_yaml(path, data)
-        assert SCAService.validate_sca_file(str(path))[0] is False
+        assert validate_sca_file(str(path))[0] is False
 
 
 def test_multiple_exports_preserve_source(tmp_path):
@@ -170,15 +169,14 @@ def test_multiple_exports_preserve_source(tmp_path):
     path = tmp_path / 'base.yml'
     write_yaml(path, source)
     guide = Guide(str(path))
-    tailoring = SCAService.create_tailoring('Tailored Policy', 'tailored', 'Description')
+    tailoring = create_tailoring('Tailored Policy', 'tailored', 'Description')
     for check_id in (1, 4):
-        SCAService.add_exception(
-            tailoring, Check.from_dict(source['checks'][check_id - 1]),
-            f'Valid reason for {check_id}')
+        add_exception(tailoring, Check.from_dict(source['checks'][check_id - 1]),
+                      f'Valid reason for {check_id}')
 
     first = export_policy(guide, tailoring, 'first', str(tmp_path / 'exports'))
     second = export_policy(
-        guide, SCAService.create_tailoring('Second Policy', 'second', 'Description'),
+        guide, create_tailoring('Second Policy', 'second', 'Description'),
         'second', str(tmp_path / 'exports'))
     with zipfile.ZipFile(first) as bundle:
         assert [c['id'] for c in _load_zip_yaml(bundle, 'first.yml')['checks']] == [2, 3]

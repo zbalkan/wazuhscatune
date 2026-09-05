@@ -1,11 +1,11 @@
-from sca.services.sca_service import SCAService
+from sca.services.sca_service import validate_sca_file
 from sca.tests.helpers import baseline, write_yaml
 
 
 def _validate(tmp_path, data):
     path = tmp_path / 'policy.yml'
     write_yaml(path, data)
-    return SCAService.validate_sca_file(str(path))
+    return validate_sca_file(str(path))
 
 
 def test_requirements_section_is_optional(tmp_path):

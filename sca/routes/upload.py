@@ -11,7 +11,7 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 from werkzeug.wrappers.response import Response as wResponse
 
-from sca.services.sca_service import SCAService
+from sca.services.sca_service import validate_sca_file
 from sca.services.session_service import SessionService, contained_path
 
 upload_bp = Blueprint('upload', __name__)
@@ -58,7 +58,7 @@ def upload_file() -> tuple[Response, Literal[400]] | Response | tuple[Response, 
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{session_id}_{filename}")
         try:
             file.save(filepath)
-            is_valid, error_msg = SCAService.validate_sca_file(filepath)
+            is_valid, error_msg = validate_sca_file(filepath)
             if not is_valid:
                 os.remove(filepath)
                 return jsonify({'error': f'Invalid SCA file: {error_msg}'}), 400

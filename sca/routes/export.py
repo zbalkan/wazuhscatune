@@ -1,7 +1,7 @@
 """Export routes."""
 import logging
 import os
-from typing import Any, Literal
+from typing import Literal
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, send_file, session, url_for
 from flask.wrappers import Response
@@ -11,7 +11,7 @@ from sca.internal.guide import Guide
 from sca.internal.review import DecisionType, ReviewDecision, normalize_decisions
 from sca.routes.upload import sanitize_policy_name
 from sca.services.export_service import cleanup_export, export_policy
-from sca.services.sca_service import SCAService
+from sca.services.sca_service import add_exception, calculate_stats, create_tailoring, get_checks
 from sca.services.session_service import SessionService, contained_path, validate_contained
 
 export_bp = Blueprint('export', __name__)
@@ -28,7 +28,7 @@ def approval_page() -> wResponse | str:
         return redirect(url_for('upload.index'))
     try:
         guide = Guide(_baseline_path())
-        checks = SCAService.get_checks(guide)
+        checks = get_checks(guide)
         decisions = session.get('decisions', {})
         normalized = normalize_decisions(decisions, {check['id'] for check in checks})
         excluded_checks = [
@@ -45,7 +45,7 @@ def approval_page() -> wResponse | str:
             'approval.html',
             custom_name=session.get('custom_name'),
             custom_description=session.get('custom_description'),
-            stats=SCAService.calculate_stats(guide, decisions),
+            stats=calculate_stats(guide, decisions),
             excluded_checks=excluded_checks,
         )
     except Exception:
@@ -88,15 +88,14 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
         if not sanitized_name:
             return jsonify({'error': 'Review session has no valid export filename; start a new review.'}), 400
 
-        tailoring = SCAService.create_tailoring(
+        tailoring = create_tailoring(
             custom_name,
             sanitized_name,
             f"{custom_description} (Based on {guide.sca.policy.name})",
         )
         for check in guide.sca.checks:
             if check.id in excluded_ids:
-                SCAService.add_exception(
-                    tailoring, check, normalized[check.id].justification or '')
+                add_exception(tailoring, check, normalized[check.id].justification or '')
 
         previous = session.get('export_zip_path')
         if isinstance(previous, str):

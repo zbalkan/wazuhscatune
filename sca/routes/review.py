@@ -8,7 +8,7 @@ from werkzeug import Response as wResponse
 
 from sca.internal.guide import Guide
 from sca.internal.review import ReviewDecision, normalize_decisions
-from sca.services.sca_service import SCAService
+from sca.services.sca_service import calculate_stats, get_checks
 from sca.services.session_service import SessionService, contained_path
 
 review_bp = Blueprint('review', __name__)
@@ -37,8 +37,8 @@ def review_page() -> wResponse | str:
         return redirect(url_for('upload.index'))
 
     try:
-        guide = SCAService.load_baseline(_baseline_path())
-        checks = SCAService.get_checks(guide)
+        guide = Guide(_baseline_path())
+        checks = get_checks(guide)
         decisions = session.get('decisions', {})
         baseline_ids = {check['id'] for check in checks}
         decisions_client = {
@@ -51,7 +51,7 @@ def review_page() -> wResponse | str:
             checks=checks,
             checks_client=[dict(check, id=str(check['id'])) for check in checks],
             decisions=decisions_client,
-            stats=SCAService.calculate_stats(guide, decisions),
+            stats=calculate_stats(guide, decisions),
         )
     except Exception:
         logger.exception("Unable to load review page")
@@ -78,7 +78,7 @@ def save_decision() -> tuple[Response, Literal[400]] | tuple[Response, Literal[4
         if str(check_id) != str(raw_id):
             return jsonify({'error': 'Field check_id must be an integer string'}), 400
 
-        guide: Guide = SCAService.load_baseline(_baseline_path())
+        guide = Guide(_baseline_path())
         if check_id not in {check.id for check in guide.sca.checks}:
             return jsonify({'error': 'Unknown check ID'}), 404
 
@@ -98,7 +98,7 @@ def save_decision() -> tuple[Response, Literal[400]] | tuple[Response, Literal[4
             'success': True,
             'check_id': str(check_id),
             'decision': decisions[str(check_id)],
-            'stats': SCAService.calculate_stats(guide, decisions),
+            'stats': calculate_stats(guide, decisions),
         })
     except Exception:
         logger.exception("Unable to save review decision")
