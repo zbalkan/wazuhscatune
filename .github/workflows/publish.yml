@@ -17,7 +17,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Require main branch
         run: |
@@ -30,14 +30,10 @@ jobs:
         id: version
         run: |
           VERSION=$(python - <<'PY'
-          import re
-          from pathlib import Path
+          import tomllib
 
-          text = Path("pyproject.toml").read_text(encoding="utf-8")
-          match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
-          if match is None:
-              raise SystemExit("Unable to read project version")
-          print(match.group(1))
+          with open("pyproject.toml", "rb") as handle:
+              print(tomllib.load(handle)["project"]["version"])
           PY
           )
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
