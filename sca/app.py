@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 """Flask application entry point for wazuhscatune."""
+import copy
 import logging
 import os
 import re
@@ -23,17 +24,16 @@ ENCODING: Final[str] = "utf-8"
 HOST: Final[str] = "127.0.0.1"
 PORT: Final[int] = 5000
 
-# Precompiled regex to remove ANSI color/control sequences
 ANSI_ESCAPE_RE: re.Pattern[str] = re.compile(
     r"""
-    (?:                           # Non-capturing group for all patterns
-      \x1B\[                      # ESC [ (CSI)
-      [0-?]*[ -/]*[@-~]           # Parameter bytes + intermediate + final byte
-     |                            # OR
-      \x1B[@-Z\\-_]               # 2-byte sequences
-     |                            # OR
-      \x1B\][^\x07]*(?:\x07|\x1B\\) # OSC sequences
-     |                            # OR literal representations (\x1b, <0x1b>)
+    (?:
+      \x1B\[
+      [0-?]*[ -/]*[@-~]
+     |
+      \x1B[@-Z\\-_]
+     |
+      \x1B\][^\x07]*(?:\x07|\x1B\\)
+     |
       (?:\\x1[bB]|\<0x1[bB]\>)(?:\[[0-?]*[ -/]*[@-~])?
     )
     """,
@@ -41,13 +41,16 @@ ANSI_ESCAPE_RE: re.Pattern[str] = re.compile(
 )
 
 
-class CustomFileHandler(logging.FileHandler):
-    """FileHandler that strips all escape sequences and representations."""
+class SanitizingFormatter(logging.Formatter):
+    """Format a sanitized copy without mutating the shared log record."""
 
-    def emit(self, record) -> None:
-        record.msg = ANSI_ESCAPE_RE.sub('', str(record.msg))
-        record.name = APP_NAME
-        super().emit(record)
+    def format(self, record: logging.LogRecord) -> str:
+        sanitized = copy.copy(record)
+        sanitized.msg = ANSI_ESCAPE_RE.sub('', sanitized.getMessage())
+        sanitized.args = ()
+        if sanitized.name == 'root':
+            sanitized.name = APP_NAME
+        return super().format(sanitized)
 
 
 def _get_log_path() -> str:
@@ -69,12 +72,16 @@ def _get_log_path() -> str:
     return os.path.abspath(os.path.join(log_dir, f"{APP_NAME}.log"))
 
 
+def _hide_server_banner(*args, **kwargs) -> None:
+    """Suppress Flask's development-server banner for this local helper."""
+    return None
+
+
 def create_app(config_class=Config) -> Flask:
     """Create and configure the Flask application."""
-    # Hide Flask's development-server banner for this local helper.
     cli = sys.modules.get('flask.cli')
     if cli is not None:
-        cli.show_server_banner = lambda *args, **kwargs: None  # type: ignore[attr-defined]
+        cli.show_server_banner = _hide_server_banner  # type: ignore[attr-defined]
 
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -121,31 +128,31 @@ def _open_browser(url: str) -> None:
 
 def _configure_logging() -> None:
     """Write application logs to a per-user file and suppress Flask clutter."""
-    handler = CustomFileHandler(_get_log_path(), encoding=ENCODING)
+    handler = logging.FileHandler(_get_log_path(), encoding=ENCODING)
+    handler.setFormatter(SanitizingFormatter(
+        fmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s',
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
+    ))
     logging.basicConfig(
         handlers=[handler],
-        format='%(asctime)s:%(name)s:%(levelname)s:%(message)s',
-        datefmt="%Y-%m-%dT%H:%M:%S%z",
         level=logging.INFO,
+        force=True,
     )
     logging.getLogger('werkzeug').disabled = True
 
 
 def main() -> None:
     """Run the single-user local web helper."""
-    app = create_app()
-    url = f'http://{HOST}:{PORT}/'
-
-    Timer(1, _open_browser, args=(url,)).start()
-    logging.info("Starting Flask app...")
-    app.run(debug=False, use_reloader=False, host=HOST, port=PORT)
-
-
-if __name__ == '__main__':
-    _configure_logging()
-    logging.info('Starting')
     try:
-        main()
+        _configure_logging()
+        logging.info('Starting')
+
+        app = create_app()
+        url = f'http://{HOST}:{PORT}/'
+        Timer(1, _open_browser, args=(url,)).start()
+
+        logging.info("Starting Flask app...")
+        app.run(debug=False, use_reloader=False, host=HOST, port=PORT)
         logging.info('Exiting.')
     except KeyboardInterrupt:
         print('Cancelled by user.')
@@ -161,3 +168,7 @@ if __name__ == '__main__':
             sys.exit(1)
         except SystemExit:
             os._exit(1)
+
+
+if __name__ == '__main__':
+    main()
