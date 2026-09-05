@@ -39,6 +39,15 @@ def _upload_data(file):
     }
 
 
+def _upload_zip(tmp_path, archive, name='policy.zip'):
+    archive.seek(0)
+    return _client(tmp_path).post(
+        '/upload',
+        data=_upload_data((archive, name)),
+        content_type='multipart/form-data',
+    )
+
+
 def test_exported_zip_policy_can_be_imported(tmp_path):
     client = _client(tmp_path)
     write_yaml(tmp_path / 'uploads' / 'base.yml', baseline())
@@ -83,16 +92,43 @@ def test_zip_import_requires_exactly_one_policy_yaml(tmp_path):
     with zipfile.ZipFile(archive, 'w') as bundle:
         bundle.writestr('one.yml', _policy_yaml())
         bundle.writestr('two.yml', _policy_yaml())
-    archive.seek(0)
 
-    response = _client(tmp_path).post(
-        '/upload',
-        data=_upload_data((archive, 'ambiguous.zip')),
-        content_type='multipart/form-data',
-    )
-
+    response = _upload_zip(tmp_path, archive, 'ambiguous.zip')
     assert response.status_code == 400
     assert 'exactly one policy YAML' in response.json['error']
+
+
+def test_zip_import_rejects_too_many_members(tmp_path):
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w') as bundle:
+        bundle.writestr('policy.yml', _policy_yaml())
+        for index in range(128):
+            bundle.writestr(f'empty-{index}.txt', '')
+
+    response = _upload_zip(tmp_path, archive, 'many-members.zip')
+    assert response.status_code == 400
+    assert 'too many files' in response.json['error']
+
+
+def test_zip_import_rejects_large_decompressed_policy(tmp_path):
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr('policy.yml', b'a' * (16 * 1024 * 1024 + 1))
+
+    response = _upload_zip(tmp_path, archive, 'compressed-large.zip')
+    assert response.status_code == 400
+    assert 'maximum upload size' in response.json['error']
+
+
+def test_zip_member_path_is_not_extracted(tmp_path):
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w') as bundle:
+        bundle.writestr('../../outside.yml', _policy_yaml())
+
+    response = _upload_zip(tmp_path, archive, 'traversal.zip')
+    assert response.status_code == 200
+    assert not (tmp_path / 'outside.yml').exists()
+    assert len(list((tmp_path / 'uploads').glob('*_outside.yml'))) == 1
 
 
 def test_unsupported_zip_member_returns_bad_request(tmp_path, monkeypatch):
