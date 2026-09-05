@@ -7,11 +7,12 @@ import pytest
 from ruamel.yaml import YAML
 
 from sca.internal.guide import Guide, escape_markdown_cell
+from sca.internal.loosening import Tailoring, TailoringException
 from sca.internal.review import ReviewDecision, normalize_decisions
 from sca.internal.sca import Check
 from sca.services.export_service import export_policy
-from sca.services.sca_service import add_exception, create_tailoring, get_checks, validate_sca_file
-from sca.services.session_service import SessionService, contained_path, validate_contained
+from sca.services.sca_service import get_checks, validate_sca_file
+from sca.services.session_service import SessionService, contained_path
 from sca.tests.helpers import app_with_session, baseline, write_yaml
 
 
@@ -95,9 +96,12 @@ def test_export_preserves_source_and_writes_provenance(tmp_path):
     path = tmp_path / 'base.yml'
     write_yaml(path, source)
     guide = Guide(str(path))
-    tailoring = create_tailoring('Tâiloréd policy', 'tailored', 'Unicode – açıklama')
-    add_exception(tailoring, Check.from_dict(source['checks'][0]),
-                  'Needed | because\nlegacy \\ app')
+    check = Check.from_dict(source['checks'][0])
+    tailoring = Tailoring('Tâiloréd policy', 'tailored', 'Unicode – açıklama')
+    tailoring.decisions[check.id] = TailoringException(
+        justification='Needed | because\nlegacy \\ app',
+        exception_check=check,
+    )
 
     archive = export_policy(guide, tailoring, 'tailored', str(tmp_path / 'exports'))
     with zipfile.ZipFile(archive) as bundle:
@@ -169,14 +173,17 @@ def test_multiple_exports_preserve_source(tmp_path):
     path = tmp_path / 'base.yml'
     write_yaml(path, source)
     guide = Guide(str(path))
-    tailoring = create_tailoring('Tailored Policy', 'tailored', 'Description')
+    tailoring = Tailoring('Tailored Policy', 'tailored', 'Description')
     for check_id in (1, 4):
-        add_exception(tailoring, Check.from_dict(source['checks'][check_id - 1]),
-                      f'Valid reason for {check_id}')
+        check = Check.from_dict(source['checks'][check_id - 1])
+        tailoring.decisions[check_id] = TailoringException(
+            justification=f'Valid reason for {check_id}',
+            exception_check=check,
+        )
 
     first = export_policy(guide, tailoring, 'first', str(tmp_path / 'exports'))
     second = export_policy(
-        guide, create_tailoring('Second Policy', 'second', 'Description'),
+        guide, Tailoring('Second Policy', 'second', 'Description'),
         'second', str(tmp_path / 'exports'))
     with zipfile.ZipFile(first) as bundle:
         assert [c['id'] for c in _load_zip_yaml(bundle, 'first.yml')['checks']] == [2, 3]
@@ -191,7 +198,7 @@ def test_containment_and_expiry(tmp_path):
     with pytest.raises(ValueError):
         contained_path(str(root), '../outside')
     with pytest.raises(ValueError):
-        validate_contained(str(root), str(tmp_path / 'outside'))
+        contained_path(str(root), str(tmp_path / 'outside'))
     expired = root / 'expired'
     active = root / 'active'
     expired.write_text('old', encoding='utf-8')
