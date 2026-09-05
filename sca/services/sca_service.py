@@ -5,9 +5,8 @@ from typing import Any
 from ruamel.yaml import YAML
 
 from sca.internal.guide import Guide
-from sca.internal.loosening import Tailoring, TailoringException
 from sca.internal.review import DecisionType, normalize_decisions
-from sca.internal.sca import Check, SCA
+from sca.internal.sca import SCA
 
 
 def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
@@ -140,14 +139,3 @@ def calculate_stats(guide: Guide, decisions: dict[str, Any]) -> dict[str, Any]:
         'reviewed': reviewed,
         'review_completion': (reviewed / total * 100) if total else 0,
     }
-
-
-def create_tailoring(name: str, custom_id: str, description: str) -> Tailoring:
-    return Tailoring(name=name, id=custom_id, description=description, decisions={})
-
-
-def add_exception(tailoring: Tailoring, check: Check, justification: str) -> None:
-    tailoring.decisions[check.id] = TailoringException(
-        justification=justification,
-        exception_check=check,
-    )
