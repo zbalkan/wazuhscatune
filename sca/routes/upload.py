@@ -109,6 +109,14 @@ def upload_file() -> tuple[Response, Literal[400]] | Response | tuple[Response, 
                 return jsonify({'error': 'Policy name contains no valid characters for filename'}), 400
 
             baseline_filename = os.path.basename(filepath)
+            draft_data = SessionService.serialize_session_data(
+                baseline_filename, custom_name, sanitized_name, custom_description, {}
+            )
+            if not SessionService(current_app.config['DRAFT_FOLDER']).save_draft(
+                    session_id, draft_data):
+                os.remove(filepath)
+                return jsonify({'error': 'Unable to persist review draft.'}), 500
+
             session.update(
                 session_id=session_id,
                 baseline_filename=baseline_filename,
@@ -118,13 +126,6 @@ def upload_file() -> tuple[Response, Literal[400]] | Response | tuple[Response, 
                 decisions={},
             )
             session.permanent = True
-
-            SessionService(current_app.config['DRAFT_FOLDER']).save_draft(
-                session_id,
-                SessionService.serialize_session_data(
-                    baseline_filename, custom_name, sanitized_name, custom_description, {}
-                ),
-            )
             return jsonify({
                 'success': True,
                 'redirect': url_for('review.review_page'),

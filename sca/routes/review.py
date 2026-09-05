@@ -88,12 +88,13 @@ def save_decision() -> tuple[Response, Literal[400]] | tuple[Response, Literal[4
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
 
-        decisions = session.get('decisions', {})
+        decisions = dict(session.get('decisions', {}))
         decisions[str(check_id)] = decision.to_session()
+        if not _save_draft(decisions):
+            return jsonify({'error': 'Unable to persist review state.'}), 500
+
         session['decisions'] = decisions
         session.modified = True
-        _save_draft(decisions)
-
         return jsonify({
             'success': True,
             'check_id': str(check_id),
