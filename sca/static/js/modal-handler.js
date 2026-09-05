@@ -33,6 +33,7 @@ class ModalHandler {
         this.decisions = decisions;
         this.cardManager = cardManager;
         this.currentCheckId = null;
+        this.previouslyFocusedElement = null;
 
         this.modal = document.getElementById('check-modal');
         this.modalTitle = document.getElementById('modal-title');
@@ -73,7 +74,12 @@ class ModalHandler {
 
         document.addEventListener('keydown', (e) => {
             if (this.modal.style.display !== 'none') {
-                if (e.key === 'ArrowLeft') {
+                if (e.key === 'Tab') {
+                    this.trapFocus(e);
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.closeModal();
+                } else if (e.key === 'ArrowLeft') {
                     e.preventDefault();
                     this.navigatePrevious();
                 } else if (e.key === 'ArrowRight') {
@@ -87,17 +93,56 @@ class ModalHandler {
         });
     }
 
+    getFocusableElements() {
+        return Array.from(this.modal.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), ' +
+            'select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+        )).filter(element => element.offsetParent !== null);
+    }
+
+    trapFocus(event) {
+        const focusableElements = this.getFocusableElements();
+        if (focusableElements.length === 0) {
+            event.preventDefault();
+            this.modal.focus();
+            return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        const activeElement = document.activeElement;
+
+        if (event.shiftKey && activeElement === firstElement) {
+            event.preventDefault();
+            lastElement.focus();
+        } else if (!event.shiftKey && activeElement === lastElement) {
+            event.preventDefault();
+            firstElement.focus();
+        } else if (!this.modal.contains(activeElement)) {
+            event.preventDefault();
+            firstElement.focus();
+        }
+    }
+
     openModal(checkId) {
+        this.previouslyFocusedElement = document.activeElement;
         this.currentCheckId = String(checkId);
         this.loadCheckData(this.currentCheckId);
         this.modal.style.display = 'block';
         document.body.style.overflow = 'hidden';
+        this.closeBtn.focus();
     }
 
     closeModal() {
         this.modal.style.display = 'none';
         document.body.style.overflow = 'auto';
         this.currentCheckId = null;
+
+        if (this.previouslyFocusedElement instanceof HTMLElement &&
+            document.contains(this.previouslyFocusedElement)) {
+            this.previouslyFocusedElement.focus();
+        }
+        this.previouslyFocusedElement = null;
     }
 
     loadCheckData(checkId) {
