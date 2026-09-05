@@ -13,11 +13,12 @@ The review model distinguishes:
 
 ## Alpha compatibility contract
 
-Version `0.1.0` is the first public alpha. Supported Python versions are 3.10,
-3.11, 3.12, and 3.13 on current Windows, macOS, and Linux desktop environments.
-Support is revisited only when a dependency, Python lifecycle change, or concrete
-user need requires it; versions are not added or removed merely to track every
-new Python release.
+Version `0.1.0` is the first public alpha. **Python 3.10 is the minimum supported
+Python version.** Python 3.10, 3.11, 3.12, and 3.13 are tested on current Windows,
+macOS, and Linux desktop environments. The minimum version is enforced by package
+metadata and exercised by CI and release packaging. Support is revisited only when
+a dependency, Python lifecycle change, or concrete user need requires it; versions
+are not added or removed merely to track every new Python release.
 
 The application is intended for one user on the local machine. It is not a web
 service, server application, or multi-user application, and production deployment
@@ -82,11 +83,10 @@ The uploaded baseline is never modified.
 
 ## Local data and cleanup
 
-Review state is saved locally after each decision and through **Save Draft**. A
-known draft can be restored at `/recover/<session-id>` while its uploaded baseline
-is still available. Drafts and other application-created temporary files expire
-after 48 hours by default. Configure the interval with
-`WAZUHSCATUNE_FILE_TTL_HOURS`.
+Review state is saved locally after each decision. A known draft can be restored
+at `/recover/<session-id>` while its uploaded baseline is still available. Drafts
+and other application-created temporary files expire after 48 hours by default.
+Configure the interval with `WAZUHSCATUNE_FILE_TTL_HOURS`.
 
 The browser session lifetime is 24 hours. File operations are restricted to the
 configured upload, draft, and export directories. Uploaded policies, draft state,
@@ -125,6 +125,9 @@ log directory itself cannot be created or written, the startup error is printed 
 the terminal instead.
 
 ## Development
+
+Python 3.10 is the compatibility floor. New code must remain valid on Python 3.10,
+and CI tests the supported Python range before release artifacts are published.
 
 Run the canonical checks with:
 
