@@ -8,6 +8,8 @@ from sca.internal.guide import Guide
 from sca.internal.review import DecisionType, normalize_decisions
 from sca.internal.sca import SCA
 
+MAX_STRUCTURE_ITEMS = 100_000
+
 
 def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
     try:
@@ -21,6 +23,8 @@ def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
         if not isinstance(data, dict):
             return False, "Invalid YAML format: root must be a mapping"
 
+        structure_items = 0
+
         policy = data.get('policy')
         if not isinstance(policy, dict):
             return False, "Missing or invalid 'policy' section: expected a mapping"
@@ -31,6 +35,7 @@ def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
             references = policy['references']
             if not isinstance(references, list) or not all(isinstance(value, str) for value in references):
                 return False, "Optional field 'policy.references' must be an array of strings"
+            structure_items += len(references)
         if 'regex_type' in policy and policy['regex_type'] not in {'osregex', 'pcre2'}:
             return False, "Optional field 'policy.regex_type' must be 'osregex' or 'pcre2'"
 
@@ -45,12 +50,14 @@ def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
             if not isinstance(rules, list) or not rules or not all(
                     isinstance(value, str) and value.strip() for value in rules):
                 return False, "requirements.rules must be a non-empty array of strings"
+            structure_items += len(rules)
 
         checks = data.get('checks')
         if not isinstance(checks, list):
             return False, "Missing or invalid 'checks' section: expected an array"
         if not checks:
             return False, "At least one check is required"
+        structure_items += len(checks)
 
         ids = set()
         for index, check in enumerate(checks):
@@ -74,6 +81,7 @@ def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
             if not isinstance(rules, list) or not rules or not all(
                     isinstance(value, str) and value.strip() for value in rules):
                 return False, f"Check {check_id}: rules must be a non-empty array of strings"
+            structure_items += len(rules)
 
             for field in ('references', 'compliance'):
                 if field in check and not isinstance(check[field], list):
@@ -81,12 +89,16 @@ def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
             for field in ('description', 'rationale', 'remediation', 'impact'):
                 if field in check and not isinstance(check[field], str):
                     return False, f"Check {check_id}: {field} must be a string"
-            if 'references' in check and not all(isinstance(value, str) for value in check['references']):
-                return False, f"Check {check_id}: references entries must be strings"
+            if 'references' in check:
+                if not all(isinstance(value, str) for value in check['references']):
+                    return False, f"Check {check_id}: references entries must be strings"
+                structure_items += len(check['references'])
             if 'regex_type' in check and check['regex_type'] not in {'osregex', 'pcre2'}:
                 return False, f"Check {check_id}: regex_type must be 'osregex' or 'pcre2'"
 
-            for comp_index, compliance in enumerate(check.get('compliance', [])):
+            compliance_items = check.get('compliance', [])
+            structure_items += len(compliance_items)
+            for comp_index, compliance in enumerate(compliance_items):
                 if not isinstance(compliance, dict):
                     return False, f"Check {check_id}: compliance[{comp_index}] must be a mapping"
                 for key, values in compliance.items():
@@ -97,9 +109,16 @@ def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
                             for value in values):
                         return False, (f"Check {check_id}: compliance[{comp_index}].{key} "
                                        "must be an array of scalar identifiers")
+                    structure_items += len(values)
+
+            if structure_items > MAX_STRUCTURE_ITEMS:
+                return False, "SCA file is too structurally complex"
 
         if 'variables' in data and not isinstance(data['variables'], dict):
             return False, "Optional field 'variables' must be a mapping"
+
+        if structure_items > MAX_STRUCTURE_ITEMS:
+            return False, "SCA file is too structurally complex"
 
         SCA.from_dict(data)
         return True, None
