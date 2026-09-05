@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
 """Flask application entry point for wazuhscatune."""
-import copy
 import logging
 import os
-import re
-import sys
 import webbrowser
+from pathlib import Path
 from threading import Timer
-from typing import Final, Literal
+from typing import Literal
 
 from flask import Flask, render_template
 from flask_session import Session
@@ -19,83 +17,24 @@ from sca.routes.review import review_bp
 from sca.routes.upload import upload_bp
 from sca.services.session_service import SessionService
 
-APP_NAME: Final[str] = Config.APP_NAME
-ENCODING: Final[str] = "utf-8"
-HOST: Final[str] = "127.0.0.1"
-PORT: Final[int] = 5000
-
-ANSI_ESCAPE_RE: re.Pattern[str] = re.compile(
-    r"""
-    (?:
-      \x1B\[
-      [0-?]*[ -/]*[@-~]
-     |
-      \x1B[@-Z\\-_]
-     |
-      \x1B\][^\x07]*(?:\x07|\x1B\\)
-     |
-      (?:\\x1[bB]|\<0x1[bB]\>)(?:\[[0-?]*[ -/]*[@-~])?
-    )
-    """,
-    re.VERBOSE,
-)
-
-
-class SanitizingFormatter(logging.Formatter):
-    """Format a sanitized copy without mutating the shared log record."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        sanitized: logging.LogRecord = copy.copy(record)
-        sanitized.msg = ANSI_ESCAPE_RE.sub('', sanitized.getMessage())
-        sanitized.args = ()
-        if sanitized.name == 'root':
-            sanitized.name = APP_NAME
-        return super().format(sanitized)
-
-
-def _get_log_path() -> str:
-    """Return a per-user log file path for Windows, Linux, and macOS."""
-    if os.name == "nt":
-        base_dir: str = os.getenv(
-            "LOCALAPPDATA", os.path.expanduser("~\\AppData\\Local"))
-        log_dir: str = os.path.join(base_dir, APP_NAME, "Logs")
-    elif sys.platform == "darwin":
-        log_dir = os.path.expanduser(f"~/Library/Logs/{APP_NAME}")
-    else:
-        xdg_state_home = os.getenv(
-            "XDG_STATE_HOME", os.path.expanduser("~/.local/state"))
-        log_dir = os.path.join(xdg_state_home, APP_NAME)
-        if not os.access(os.path.dirname(log_dir), os.W_OK):
-            log_dir = os.path.expanduser(f"~/.local/share/{APP_NAME}/logs")
-
-    os.makedirs(log_dir, exist_ok=True)
-    return os.path.abspath(os.path.join(log_dir, f"{APP_NAME}.log"))
-
-
-def _hide_server_banner(*args, **kwargs) -> None:
-    """Suppress Flask's development-server banner for this local helper."""
-    return None
+HOST = '127.0.0.1'
+PORT = 5000
 
 
 def create_app(config_class=Config) -> Flask:
-    """Create and configure the Flask application."""
-    cli = sys.modules.get('flask.cli')
-    if cli is not None:
-        cli.show_server_banner = _hide_server_banner  # type: ignore[attr-defined]
-
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    os.makedirs(app.config['DRAFT_FOLDER'], exist_ok=True)
-    os.makedirs(app.config['EXPORT_FOLDER'], exist_ok=True)
-    os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+    folders = [
+        app.config['UPLOAD_FOLDER'],
+        app.config['DRAFT_FOLDER'],
+        app.config['EXPORT_FOLDER'],
+        app.config['SESSION_FILE_DIR'],
+    ]
+    for folder in folders:
+        os.makedirs(folder, exist_ok=True)
     Session(app)
-
-    SessionService.cleanup_expired(
-        [app.config['UPLOAD_FOLDER'], app.config['DRAFT_FOLDER'],
-         app.config['EXPORT_FOLDER'], app.config['SESSION_FILE_DIR']],
-        app.config['FILE_TTL_HOURS'])
+    SessionService.cleanup_expired(folders, app.config['FILE_TTL_HOURS'])
 
     app.register_blueprint(upload_bp)
     app.register_blueprint(review_bp)
@@ -117,7 +56,6 @@ def create_app(config_class=Config) -> Flask:
 
 
 def _open_browser(url: str) -> None:
-    """Open the app's URL in the user's default browser, if available."""
     try:
         if webbrowser.get().name != 'gio':
             webbrowser.open_new(url)
@@ -127,51 +65,37 @@ def _open_browser(url: str) -> None:
 
 
 def _configure_logging() -> None:
-    """Write application logs to a per-user file and suppress Flask clutter."""
-    handler = logging.FileHandler(_get_log_path(), encoding=ENCODING)
-    handler.setFormatter(SanitizingFormatter(
+    log_dir = Path(Config.LOG_FOLDER)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_dir / f'{Config.APP_NAME}.log', encoding='utf-8')
+    handler.setFormatter(logging.Formatter(
         fmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s',
-        datefmt="%Y-%m-%dT%H:%M:%S%z",
+        datefmt='%Y-%m-%dT%H:%M:%S%z',
     ))
-    logging.basicConfig(
-        handlers=[handler],
-        level=logging.INFO,
-        force=True,
-    )
+    logging.basicConfig(handlers=[handler], level=logging.INFO, force=True)
     logging.getLogger('werkzeug').disabled = True
 
 
 def main() -> None:
-    """Run the single-user local web helper."""
     logging_ready = False
     try:
         _configure_logging()
         logging_ready = True
         logging.info('Starting')
 
-        app: Flask = create_app()
-        url: str = f'http://{HOST}:{PORT}/'
-        Timer(1, _open_browser, args=(url,)).start()
-
-        logging.info("Starting Flask app...")
+        app = create_app()
+        Timer(1, _open_browser, args=(f'http://{HOST}:{PORT}/',)).start()
         app.run(debug=False, use_reloader=False, host=HOST, port=PORT)
         logging.info('Exiting.')
     except KeyboardInterrupt:
         print('Cancelled by user.')
         if logging_ready:
             logging.info('Cancelled by user.')
-        try:
-            sys.exit(0)
-        except SystemExit:
-            os._exit(0)
-    except Exception as ex:
-        print('ERROR: ' + str(ex))
+    except Exception as error:
+        print(f'ERROR: {error}')
         if logging_ready:
-            logging.error(str(ex), exc_info=True)
-        try:
-            sys.exit(1)
-        except SystemExit:
-            os._exit(1)
+            logging.error(str(error), exc_info=True)
+        raise SystemExit(1) from error
 
 
 if __name__ == '__main__':
