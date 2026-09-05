@@ -8,6 +8,7 @@ from sca.services.export_service import ExportService
 from sca.services.session_service import SessionService
 from sca.internal.review import DecisionType, normalize_decisions
 from sca.services.session_service import contained_path, validate_contained
+from sca.routes.upload import sanitize_policy_name
 
 
 export_bp = Blueprint('export', __name__)
@@ -86,12 +87,14 @@ def export_files():
         # Create tailoring record
         custom_name = session.get('custom_name')
         custom_description = session.get('custom_description')
-        # Use the sanitized name stored during upload
         sanitized_name = session.get('sanitized_name')
         if not sanitized_name:
-            # Fallback to old sanitization if not in session (backward compatibility)
-            sanitized_name = custom_name.lower().replace(' ', '_').replace('-', '_').replace('.', '_')
-            sanitized_name = sanitized_name.replace('___', '_').replace('__', '_')
+            # Legacy drafts may not have stored the sanitized filename.
+            if not isinstance(custom_name, str) or not custom_name.strip():
+                return jsonify({'error': 'Review session is invalid; start a new review.'}), 400
+            sanitized_name = sanitize_policy_name(custom_name)
+            if not sanitized_name:
+                return jsonify({'error': 'Review session has no valid export filename; start a new review.'}), 400
 
         full_description = f"{custom_description} (Based on {sca.policy.name})"
         tailoring = SCAService.create_tailoring(custom_name, sanitized_name, full_description)
