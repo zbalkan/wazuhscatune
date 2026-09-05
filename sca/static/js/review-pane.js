@@ -87,6 +87,16 @@ class ReviewPane {
         this.updateNavigation();
     }
 
+    clearSelection() {
+        this.currentCheckId = null;
+        this.dirty = false;
+        this.list.querySelectorAll('.check-row').forEach(row => {
+            row.classList.remove('selected');
+            row.setAttribute('aria-current', 'false');
+        });
+        this.updateNavigation();
+    }
+
     setOptionalDetail(field, value) {
         const group = document.getElementById(`${field}-group`);
         if (!value) {
@@ -142,7 +152,6 @@ class ReviewPane {
         const checkId = this.currentCheckId;
         const decision = this.exceptionRadio.checked ? 'exception' : 'accepted';
         const justification = this.justificationInput.value.trim();
-        const nextId = this.nextVisibleId(checkId);
 
         this.saveInFlight = true;
         this.previousButton.disabled = true;
@@ -166,12 +175,19 @@ class ReviewPane {
                 detail: {checkId}
             }));
             showToast('Decision saved', 'success');
-            if (nextId) this.selectCheck(nextId);
+
+            const visibleIds = this.visibleIds();
+            const nextId = this.nextVisibleId(checkId);
+            if (nextId) {
+                this.selectCheck(nextId);
+            } else if (!visibleIds.includes(checkId)) {
+                if (visibleIds.length) this.selectCheck(visibleIds[0]);
+                else this.clearSelection();
+            }
         } catch (error) {
             showToast(error.message || 'Error saving decision', 'error');
         } finally {
             this.saveInFlight = false;
-            this.saveNextButton.disabled = false;
             this.updateNavigation();
         }
     }
@@ -253,6 +269,7 @@ class ReviewPane {
 
     updateNavigation() {
         this.previousButton.disabled = this.saveInFlight || !this.previousVisibleId(this.currentCheckId);
+        this.saveNextButton.disabled = this.saveInFlight || this.currentCheckId === null;
     }
 }
 
