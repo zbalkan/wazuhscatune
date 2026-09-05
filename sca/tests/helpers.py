@@ -19,7 +19,7 @@ def baseline(checks=None):
             'condition': 'all',
         },
         'variables': {'$x': 1},
-        'checks': checks or [
+        'checks': checks if checks is not None else [
             {
                 'id': 1,
                 'title': 'One | first',
@@ -69,9 +69,9 @@ def app_with_session(tmp_path):
         sess.update(
             session_id=str(uuid.uuid4()),
             baseline_filename='base.yml',
-            custom_name='A tailored policy',
-            sanitized_name='a_tailored_policy',
-            custom_description='A detailed tailored policy description',
+            custom_name='Tailored',
+            sanitized_name='tailored',
+            custom_description='Description',
             decisions={},
         )
-    return client
+    return app, client, path
