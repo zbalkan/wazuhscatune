@@ -145,7 +145,7 @@ def test_markdown_export_neutralizes_uploaded_markup(tmp_path):
     assert '<script>' not in markdown
     assert '<img ' not in markdown
     assert '<b>' not in markdown
-    assert '(javascript:' not in markdown
+    assert '](javascript:' not in markdown
     assert '&lt;script&gt;' in markdown
     assert r'\[click\]\(javascript:alert\(1\)\)' in markdown
 
