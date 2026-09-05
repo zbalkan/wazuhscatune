@@ -8,113 +8,77 @@
         <h2>{{ policy_name }}</h2>
         <div class="review-actions">
             <button class="btn btn-secondary" id="save-draft-btn">Save Draft</button>
-            <button class="btn btn-primary" id="review-decisions-btn">Review Decisions</button>
+            <button class="btn btn-primary" id="review-decisions-btn" {% if stats.unreviewed %}disabled{% endif %}>Review Decisions</button>
         </div>
     </div>
 
     <div class="progress-indicator">
         <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            <div class="progress-fill" id="progress-fill" style="width: {{ stats.review_completion }}%"></div>
         </div>
         <p class="progress-text">
-            <span id="reviewed-count">0</span> of <span id="total-count">{{ checks|length }}</span> checks reviewed
-            (<span id="excluded-count">0</span> exceptions,
+            <span id="reviewed-count">{{ stats.reviewed }}</span> of <span id="total-count">{{ checks|length }}</span> checks reviewed
+            (<span id="excluded-count">{{ stats.exceptions }}</span> exceptions,
             <span id="unreviewed-count">{{ stats.unreviewed }}</span> unreviewed,
             <span id="effective-count">{{ stats.effective_included }}</span> effective checks)
         </p>
     </div>
 
-    <div class="review-content">
-        <aside class="filter-sidebar">
-            <h3>Filters</h3>
-
-            <fieldset class="filter-group">
-                <legend>Status</legend>
-                <div class="filter-options">
-                    <label class="filter-option">
-                        <input type="checkbox" name="status" value="accepted" checked>
-                        <span>Accepted</span>
-                    </label>
-                    <label class="filter-option">
-                        <input type="checkbox" name="status" value="exception" checked>
-                        <span>Exceptions</span>
-                    </label>
-                    <label class="filter-option">
-                        <input type="checkbox" name="status" value="unreviewed" checked>
-                        <span>Unreviewed</span>
-                    </label>
+    <div class="review-workspace">
+        <aside class="review-list-pane" aria-label="Checks">
+            <div class="review-list-filters">
+                <input type="search" class="filter-search" id="search-input" placeholder="Search checks..." aria-label="Search checks">
+                <input type="search" class="filter-search" id="impact-search-input" placeholder="Search impact..." aria-label="Search impact">
+                <div class="review-status-filters">
+                    <label><input type="checkbox" name="status" value="accepted" checked> Accepted</label>
+                    <label><input type="checkbox" name="status" value="exception" checked> Exceptions</label>
+                    <label><input type="checkbox" name="status" value="unreviewed" checked> Unreviewed</label>
                 </div>
-            </fieldset>
-
-            <div class="filter-group">
-                <label for="search-input">Search</label>
-                <input type="text" class="filter-search" id="search-input" placeholder="Search checks...">
+                <button class="btn btn-outline btn-small" id="clear-filters-btn" type="button">Clear Filters</button>
             </div>
 
-            <div class="filter-group">
-                <label for="impact-search-input">Impact Search</label>
-                <input type="text" class="filter-search" id="impact-search-input" placeholder="Search by impact...">
-            </div>
-
-            <button class="btn btn-outline" id="clear-filters-btn">Clear Filters</button>
-        </aside>
-
-        <div class="cards-area">
-            <div class="cards-grid" id="cards-grid">
+            <div class="check-list" id="check-list">
                 {% for check in checks %}
-                <div class="check-card" data-check-id="{{ check.id }}" data-impact="{{ check.impact|lower }}"
-                     role="button" tabindex="0" aria-haspopup="dialog">
-                    <div class="card-header">
+                <button type="button" class="check-row" data-check-id="{{ check.id }}" data-impact="{{ check.impact|lower }}" aria-current="false">
+                    <span class="check-row-topline">
                         <span class="check-id">Check #{{ check.id }}</span>
-                    </div>
-                    <h3 class="card-title">{{ check.title }}</h3>
-                    <p class="card-description">{{ check.description[:100] }}{% if check.description|length > 100 %}...{% endif %}</p>
-                    <div class="card-footer">
                         <span class="card-status" data-status="unreviewed">Unreviewed</span>
-                    </div>
-                </div>
+                    </span>
+                    <span class="check-row-title">{{ check.title }}</span>
+                    <span class="check-row-preview">{{ check.description[:100] }}{% if check.description|length > 100 %}...{% endif %}</span>
+                </button>
                 {% endfor %}
             </div>
-        </div>
-    </div>
-</div>
+        </aside>
 
-<!-- Modal for check details -->
-<div class="modal" id="check-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="modal-overlay"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 id="modal-title">Check Details</h2>
-            <button class="modal-close" id="modal-close-btn" aria-label="Close modal">&times;</button>
-        </div>
-        <div class="modal-body" id="modal-body">
-            <div class="check-details">
+        <section class="reading-pane" aria-labelledby="detail-title">
+            <div class="reading-pane-content">
                 <div class="detail-group">
-                    <label>Check ID:</label>
+                    <label>Check ID</label>
                     <span id="detail-id"></span>
                 </div>
                 <div class="detail-group">
-                    <label>Title:</label>
-                    <span id="detail-title"></span>
+                    <label>Title</label>
+                    <h3 id="detail-title"></h3>
                 </div>
                 <div class="detail-group">
-                    <label>Description:</label>
+                    <label>Description</label>
                     <p id="detail-description"></p>
                 </div>
                 <div class="detail-group" id="impact-group">
-                    <label>Impact:</label>
+                    <label>Impact</label>
                     <p id="detail-impact"></p>
                 </div>
                 <div class="detail-group" id="rationale-group">
-                    <label>Rationale:</label>
+                    <label>Rationale</label>
                     <p id="detail-rationale"></p>
                 </div>
                 <div class="detail-group" id="remediation-group">
-                    <label>Remediation:</label>
+                    <label>Remediation</label>
                     <p id="detail-remediation"></p>
                 </div>
                 <div class="detail-group" id="compliance-group">
-                    <label>Compliance:</label>
+                    <label>Compliance</label>
                     <div id="detail-compliance"></div>
                 </div>
 
@@ -130,28 +94,24 @@
                             <span>Record an exception</span>
                         </label>
                     </div>
-
-                    <div class="justification-area" id="justification-area" style="display: none;">
+                    <div class="justification-area" id="justification-area" hidden>
                         <label for="justification-input">Justification <span class="required">*</span></label>
                         <textarea id="justification-input" class="form-textarea"
                                   placeholder="Enter justification (10-1000 characters)"
-                                  minlength="10" maxlength="1000" rows="4"></textarea>
+                                  minlength="10" maxlength="1000" rows="5"></textarea>
                         <div class="char-count"><span id="just-char-count">0</span>/1000</div>
-                        <div class="validation-feedback" id="just-validation"></div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" id="modal-prev-btn">Previous</button>
-            <button class="btn btn-secondary" id="modal-next-btn">Next</button>
-            <button class="btn btn-primary" id="modal-save-btn">Save</button>
-        </div>
+            <div class="reading-pane-actions">
+                <button class="btn btn-secondary" id="previous-btn" type="button">Previous</button>
+                <button class="btn btn-primary" id="save-next-btn" type="button">Save &amp; Next</button>
+            </div>
+        </section>
     </div>
 </div>
 
 <script>
-// Serialize IDs as strings so browser number precision cannot alter valid SCA IDs.
 window.checksData = {{ checks_client|tojson }};
 window.decisionsData = {{ decisions|tojson }};
 window.statsData = {{ stats|tojson }};
@@ -159,35 +119,29 @@ window.statsData = {{ stats|tojson }};
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/card-manager.js') }}"></script>
-<script src="{{ url_for('static', filename='js/modal-handler.js') }}"></script>
+<script src="{{ url_for('static', filename='js/review-pane.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filter-controller.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const cardManager = new CardManager(window.checksData, window.decisionsData, window.statsData);
-    new ModalHandler(window.checksData, window.decisionsData, cardManager);
-    new FilterController(window.checksData, cardManager);
+    const reviewPane = new ReviewPane(window.checksData, window.decisionsData, window.statsData);
+    new FilterController(window.checksData, reviewPane);
 
-    // Save draft button
-    document.getElementById('save-draft-btn').addEventListener('click', function() {
-        fetch('/api/save-draft', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'}
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('Draft saved successfully', 'success');
-            } else {
-                showToast('Failed to save draft', 'error');
-            }
-        })
-        .catch(error => showToast('Error saving draft', 'error'));
+    document.getElementById('save-draft-btn').addEventListener('click', async function() {
+        try {
+            const response = await fetch('/api/save-draft', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Failed to save draft');
+            showToast('Draft saved successfully', 'success');
+        } catch (error) {
+            showToast(error.message || 'Error saving draft', 'error');
+        }
     });
 
-    // Review decisions button
     document.getElementById('review-decisions-btn').addEventListener('click', function() {
-        window.location.href = '/approval';
+        if (!this.disabled) window.location.href = '/approval';
     });
 });
 </script>

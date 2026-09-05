@@ -1,117 +1,75 @@
-/**
- * Filter Controller
- * Manages filtering and searching of checks
- */
-
+/** Review list filtering. */
 class FilterController {
-    constructor(checks, cardManager) {
+    constructor(checks, reviewPane) {
         this.checks = checks;
-        this.cardManager = cardManager;
+        this.reviewPane = reviewPane;
         this.activeFilters = {
             status: ['accepted', 'exception', 'unreviewed'],
             searchText: '',
-            impactSearchText: ''
+            impactSearchText: '',
         };
 
-        this.initializeEventListeners();
+        this.bindEvents();
         this.applyFilters();
     }
 
-    initializeEventListeners() {
-        const statusCheckboxes = document.querySelectorAll('input[name="status"]');
-        statusCheckboxes.forEach(cb => {
-            cb.addEventListener('change', () => this.handleStatusFilter());
+    bindEvents() {
+        document.querySelectorAll('input[name="status"]').forEach(input => {
+            input.addEventListener('change', () => {
+                this.activeFilters.status = Array.from(
+                    document.querySelectorAll('input[name="status"]:checked')
+                ).map(item => item.value);
+                this.applyFilters();
+            });
         });
 
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            let debounceTimer;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => this.handleSearch(e.target.value), 300);
-            });
-        }
-
-        const impactSearchInput = document.getElementById('impact-search-input');
-        if (impactSearchInput) {
-            let debounceTimer;
-            impactSearchInput.addEventListener('input', (e) => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => this.handleImpactSearch(e.target.value), 300);
-            });
-        }
-
-        const clearBtn = document.getElementById('clear-filters-btn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => this.clearFilters());
-        }
-
-        document.addEventListener('cardDecisionChanged', () => this.applyFilters());
-    }
-
-    handleStatusFilter() {
-        const statusCheckboxes = document.querySelectorAll('input[name="status"]:checked');
-        this.activeFilters.status = Array.from(statusCheckboxes).map(cb => cb.value);
-        this.applyFilters();
-    }
-
-    handleSearch(query) {
-        this.activeFilters.searchText = query.toLowerCase();
-        this.applyFilters();
-    }
-
-    handleImpactSearch(query) {
-        this.activeFilters.impactSearchText = query.toLowerCase();
-        this.applyFilters();
+        const search = document.getElementById('search-input');
+        const impact = document.getElementById('impact-search-input');
+        const clear = document.getElementById('clear-filters-btn');
+        search.addEventListener('input', () => {
+            this.activeFilters.searchText = search.value.toLowerCase();
+            this.applyFilters();
+        });
+        impact.addEventListener('input', () => {
+            this.activeFilters.impactSearchText = impact.value.toLowerCase();
+            this.applyFilters();
+        });
+        clear.addEventListener('click', () => this.clear());
+        document.addEventListener('reviewDecisionChanged', () => this.applyFilters());
     }
 
     applyFilters() {
-        const filteredIds = this.getFilteredChecks().map(c => c.id);
-        this.cardManager.filterCards(filteredIds);
-    }
-
-    getFilteredChecks() {
-        return this.checks.filter(check => {
-            const checkStatus = this.getCheckStatus(check.id);
-            if (!this.activeFilters.status.includes(checkStatus)) return false;
-
-            if (this.activeFilters.impactSearchText) {
-                const checkImpact = (check.impact || '').toLowerCase();
-                if (!checkImpact.includes(this.activeFilters.impactSearchText)) return false;
+        const ids = this.checks.filter(check => {
+            const decision = this.reviewPane.decisions[check.id];
+            const status = decision ? decision.decision : 'unreviewed';
+            if (!this.activeFilters.status.includes(status)) return false;
+            if (this.activeFilters.impactSearchText &&
+                !(check.impact || '').toLowerCase().includes(this.activeFilters.impactSearchText)) {
+                return false;
             }
-
             if (this.activeFilters.searchText) {
-                const searchableText = [
-                    check.id.toString(), check.title, check.description || '',
-                    check.rationale || '', check.remediation || ''
+                const text = [
+                    check.id, check.title, check.description || '', check.rationale || '',
+                    check.remediation || ''
                 ].join(' ').toLowerCase();
-                if (!searchableText.includes(this.activeFilters.searchText)) return false;
+                if (!text.includes(this.activeFilters.searchText)) return false;
             }
             return true;
+        }).map(check => check.id);
+        this.reviewPane.filterRows(ids);
+    }
+
+    clear() {
+        document.querySelectorAll('input[name="status"]').forEach(input => {
+            input.checked = true;
         });
-    }
-
-    getCheckStatus(checkId) {
-        const decision = this.cardManager.decisions[checkId];
-        return decision ? decision.decision : 'unreviewed';
-    }
-
-    clearFilters() {
-        const statusCheckboxes = document.querySelectorAll('input[name="status"]');
-        statusCheckboxes.forEach(cb => cb.checked = true);
-        this.activeFilters.status = ['accepted', 'exception', 'unreviewed'];
-
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            searchInput.value = '';
-            this.activeFilters.searchText = '';
-        }
-
-        const impactSearchInput = document.getElementById('impact-search-input');
-        if (impactSearchInput) {
-            impactSearchInput.value = '';
-            this.activeFilters.impactSearchText = '';
-        }
+        document.getElementById('search-input').value = '';
+        document.getElementById('impact-search-input').value = '';
+        this.activeFilters = {
+            status: ['accepted', 'exception', 'unreviewed'],
+            searchText: '',
+            impactSearchText: '',
+        };
         this.applyFilters();
     }
 }
