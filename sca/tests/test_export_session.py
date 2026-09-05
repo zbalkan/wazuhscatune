@@ -3,6 +3,13 @@ import pytest
 from sca.tests.helpers import app_with_session
 
 
+def _complete_review(sess):
+    sess['decisions'] = {
+        '1': {'decision': 'accepted'},
+        '2': {'decision': 'accepted'},
+    }
+
+
 @pytest.mark.parametrize('field,value', [
     ('custom_name', None),
     ('custom_name', 7),
@@ -12,6 +19,7 @@ from sca.tests.helpers import app_with_session
 def test_export_rejects_corrupt_required_session_fields(tmp_path, field, value):
     client = app_with_session(tmp_path)
     with client.session_transaction() as sess:
+        _complete_review(sess)
         sess[field] = value
 
     response = client.post('/api/export')
@@ -24,6 +32,7 @@ def test_export_rejects_corrupt_required_session_fields(tmp_path, field, value):
 def test_export_regenerates_missing_or_invalid_sanitized_name(tmp_path, stored):
     client = app_with_session(tmp_path)
     with client.session_transaction() as sess:
+        _complete_review(sess)
         sess['custom_name'] = 'Tailored Policy Name'
         if stored is None:
             sess.pop('sanitized_name', None)
@@ -40,6 +49,7 @@ def test_export_regenerates_missing_or_invalid_sanitized_name(tmp_path, stored):
 def test_export_does_not_stringify_missing_sanitized_name(tmp_path):
     client = app_with_session(tmp_path)
     with client.session_transaction() as sess:
+        _complete_review(sess)
         sess.pop('sanitized_name', None)
 
     response = client.post('/api/export')
