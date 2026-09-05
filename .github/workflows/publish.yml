@@ -9,12 +9,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -47,7 +43,34 @@ jobs:
         run: |
           pipx list | grep -q "package wazuhscatune ${{ steps.version.outputs.version }}"
           pipx list | grep -q "wazuhscatune"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-package-distributions
+          path: dist/
 
+  tag:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Read package version
+        id: version
+        run: |
+          VERSION=$(python - <<'PY'
+          import tomllib
+
+          with open("pyproject.toml", "rb") as handle:
+              print(tomllib.load(handle)["project"]["version"])
+          PY
+          )
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Create version tag
         run: |
           TAG="v${{ steps.version.outputs.version }}"
@@ -66,13 +89,8 @@ jobs:
             git push origin "$TAG"
           fi
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: python-package-distributions
-          path: dist/
-
   publish:
-    needs: build
+    needs: tag
     runs-on: ubuntu-latest
     permissions:
       id-token: write
