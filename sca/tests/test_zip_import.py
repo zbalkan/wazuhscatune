@@ -5,6 +5,7 @@ import zipfile
 from ruamel.yaml import YAML
 
 from sca.app import create_app
+from sca.routes.upload import sanitize_policy_name
 from sca.tests.helpers import baseline, write_yaml
 
 
@@ -129,6 +130,12 @@ def test_zip_member_path_is_not_extracted(tmp_path):
     assert response.status_code == 200
     assert not (tmp_path / 'outside.yml').exists()
     assert len(list((tmp_path / 'uploads').glob('*_outside.yml'))) == 1
+
+
+def test_control_characters_are_removed_from_policy_filename():
+    sanitized = sanitize_policy_name('Valid Policy\x00\n<script>')
+    assert sanitized == 'valid_policyscript'
+    assert '\x00' not in sanitized and '\n' not in sanitized
 
 
 def test_unsupported_zip_member_returns_bad_request(tmp_path, monkeypatch):
