@@ -8,10 +8,11 @@ from flask.wrappers import Response
 from werkzeug import Response as wResponse
 
 from sca.internal.guide import Guide
+from sca.internal.loosening import Tailoring, TailoringException
 from sca.internal.review import DecisionType, ReviewDecision, normalize_decisions
 from sca.routes.upload import sanitize_policy_name
 from sca.services.export_service import cleanup_export, export_policy
-from sca.services.sca_service import add_exception, calculate_stats, create_tailoring, get_checks
+from sca.services.sca_service import calculate_stats, get_checks
 from sca.services.session_service import SessionService, contained_path, validate_contained
 
 export_bp = Blueprint('export', __name__)
@@ -103,14 +104,17 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
         if not sanitized_name:
             return jsonify({'error': 'Review session has no valid export filename; start a new review.'}), 400
 
-        tailoring = create_tailoring(
-            custom_name,
-            sanitized_name,
-            f"{custom_description} (Based on {guide.sca.policy.name})",
+        tailoring = Tailoring(
+            name=custom_name,
+            id=sanitized_name,
+            description=f"{custom_description} (Based on {guide.sca.policy.name})",
         )
         for check in guide.sca.checks:
             if check.id in excluded_ids:
-                add_exception(tailoring, check, normalized[check.id].justification or '')
+                tailoring.decisions[check.id] = TailoringException(
+                    justification=normalized[check.id].justification or '',
+                    exception_check=check,
+                )
 
         previous_path = None
         previous = session.get('export_zip_path')
