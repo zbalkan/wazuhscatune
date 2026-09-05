@@ -49,7 +49,6 @@ def review_page() -> wResponse | str:
             'review.html',
             policy_name=session.get('custom_name'),
             checks=checks,
-            checks_client=[dict(check, id=str(check['id'])) for check in checks],
             decisions=decisions_client,
             stats=calculate_stats(guide, decisions),
         )
