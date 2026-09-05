@@ -65,6 +65,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["sca*"]
+exclude = ["sca.tests*"]
 
 [tool.setuptools.package-data]
 sca = ["templates/**/*.html", "static/**/*.css", "static/**/*.js"]
