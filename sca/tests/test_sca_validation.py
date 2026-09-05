@@ -50,3 +50,28 @@ def test_policy_id_accepts_documented_arbitrary_string(tmp_path):
     data = baseline()
     data['policy']['id'] = 'Custom policy ID'
     assert _validate(tmp_path, data) == (True, None)
+
+
+def test_invalid_utf8_is_rejected(tmp_path):
+    path = tmp_path / 'policy.yml'
+    path.write_bytes(b'policy:\n  name: \xff\n')
+    assert validate_sca_file(str(path)) == (False, 'Unable to parse the YAML file')
+
+
+def test_python_object_tag_is_rejected_without_execution(tmp_path):
+    marker = tmp_path / 'owned'
+    path = tmp_path / 'policy.yml'
+    path.write_text(
+        '!!python/object/apply:os.system ["touch ' + str(marker) + '"]\n',
+        encoding='utf-8',
+    )
+    assert validate_sca_file(str(path))[0] is False
+    assert not marker.exists()
+
+
+def test_structural_amplification_is_rejected(tmp_path):
+    data = baseline()
+    data['checks'][0]['rules'] = ['f:/same'] * 100_001
+    valid, message = _validate(tmp_path, data)
+    assert not valid
+    assert message == 'SCA file is too structurally complex'
