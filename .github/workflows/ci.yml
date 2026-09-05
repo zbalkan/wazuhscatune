@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, new-flask-app, p0-release-readiness]
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.gif"
+      - "**/*.svg"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.gif"
+      - "**/*.svg"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+      - name: Test
+        run: python -m pytest --cov=sca --cov-report=term-missing
+      - name: Compile
+        run: python -m compileall -q sca
+      - name: Style
+        run: python -m pycodestyle sca
+      - name: Type check
+        run: python -m mypy sca
+      - name: Dependency audit
+        run: python -m pip_audit
+
+  package:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build tools
+        run: python -m pip install --upgrade pip build twine
+      - name: Build
+        run: python -m build
+      - name: Validate metadata
+        run: python -m twine check --strict dist/*
+      - name: Inspect artifacts
+        run: |
+          python -m zipfile --list dist/*.whl
+          tar -tf dist/*.tar.gz
+          python - <<'PY'
+          import glob, zipfile
+          wheel = glob.glob('dist/*.whl')[0]
+          names = set(zipfile.ZipFile(wheel).namelist())
+          required = {
+              'sca/templates/base.html',
+              'sca/templates/errors/404.html',
+              'sca/templates/errors/500.html',
+              'sca/static/css/main.css',
+              'sca/static/js/app.js',
+          }
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f'missing wheel assets: {missing}')
+          if not any(name.endswith('.dist-info/licenses/LICENSE') for name in names):
+              raise SystemExit('LICENSE missing from wheel metadata')
+          PY
+      - name: Wheel install smoke test
+        run: |
+          python -m venv /tmp/wazuhscatune-wheel
+          /tmp/wazuhscatune-wheel/bin/python -m pip install --upgrade pip
+          /tmp/wazuhscatune-wheel/bin/python -m pip install dist/*.whl
+          cd /tmp
+          /tmp/wazuhscatune-wheel/bin/python - <<'PY'
+          from importlib.metadata import version
+          from sca.app import create_app
+          assert version('wazuhscatune') == '0.1.0'
+          app = create_app()
+          client = app.test_client()
+          response = client.get('/')
+          assert response.status_code == 200
+          PY
