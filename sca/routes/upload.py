@@ -39,11 +39,17 @@ def _save_uploaded_policy(file: FileStorage, session_id: str) -> str:
 
     try:
         with zipfile.ZipFile(file.stream) as archive:
-            policies = [
+            yaml_members = [
                 item for item in archive.infolist()
-                if not item.is_dir()
-                and Path(item.filename).suffix.lower() in {'.yml', '.yaml'}
-                and not Path(item.filename).name.lower().endswith(('_exceptions.yml', '_exceptions.yaml'))
+                if not item.is_dir() and Path(item.filename).suffix.lower() in {'.yml', '.yaml'}
+            ]
+            stems = {Path(item.filename).stem.lower() for item in yaml_members}
+            policies = [
+                item for item in yaml_members
+                if not (
+                    Path(item.filename).stem.lower().endswith('_exceptions')
+                    and Path(item.filename).stem.lower()[:-11] in stems
+                )
             ]
             if len(policies) != 1:
                 raise ValueError('ZIP must contain exactly one policy YAML file')
@@ -62,8 +68,8 @@ def _save_uploaded_policy(file: FileStorage, session_id: str) -> str:
             with open(path, 'wb') as destination:
                 destination.write(data)
             return path
-    except zipfile.BadZipFile as error:
-        raise ValueError('Invalid ZIP archive') from error
+    except (zipfile.BadZipFile, RuntimeError, NotImplementedError) as error:
+        raise ValueError('Invalid or unsupported ZIP archive') from error
 
 
 @upload_bp.route('/')
