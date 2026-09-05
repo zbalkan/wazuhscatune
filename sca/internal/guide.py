@@ -1,4 +1,5 @@
 import hashlib
+import html
 import os
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -13,8 +14,15 @@ from sca.internal.sca import SCA
 ENCODING = 'UTF-8'
 
 
+def escape_markdown(value: object) -> str:
+    text = html.escape(str(value), quote=False).replace('\\', '\\\\')
+    for character in '[]()':
+        text = text.replace(character, f'\\{character}')
+    return text
+
+
 def escape_markdown_cell(value: object) -> str:
-    return (str(value).replace('\\', '\\\\').replace('|', '\\|')
+    return (escape_markdown(value).replace('|', '\\|')
             .replace('\r\n', '<br>').replace('\n', '<br>').replace('\r', '<br>'))
 
 
@@ -74,15 +82,15 @@ class Guide:
             self.__yaml__.dump(record, stream)
 
         with open(md_path, mode='w', encoding=ENCODING) as stream:
-            stream.write(f"# {escape_markdown_cell(tailoring.name)} Exception Record\n\n")
+            stream.write(f"# {escape_markdown(tailoring.name)} Exception Record\n\n")
             stream.write(
-                f"## {escape_markdown_cell(tailoring.name)} "
-                f"({escape_markdown_cell(tailoring.id)})\n\n"
+                f"## {escape_markdown(tailoring.name)} "
+                f"({escape_markdown(tailoring.id)})\n\n"
             )
-            stream.write(f"{tailoring.description}\n\n")
+            stream.write(f"{escape_markdown(tailoring.description)}\n\n")
             stream.write(
-                f"Baseline: {escape_markdown_cell(sca.policy.name)} "
-                f"(`{escape_markdown_cell(sca.policy.id)}`)  \n"
+                f"Baseline: {escape_markdown(sca.policy.name)} "
+                f"(`{escape_markdown(sca.policy.id)}`)  \n"
                 f"SHA-256: `{digest}`\n\n"
             )
             stream.write("## Exceptions\n\n")
