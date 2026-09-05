@@ -5,21 +5,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping
 
-# At least this many distinct letters must appear in a justification. Blocks
-# "!!!!!!!!!!", "aaaaaaaaaa", "..........", and similar keyboard-mashing that
-# happens to clear the length check but carries no auditable reasoning.
 _MIN_DISTINCT_LETTERS = 4
 _LETTER_RE: re.Pattern[str] = re.compile(r"[^\W\d_]", re.UNICODE)
 
 
 def _is_meaningful(text: str) -> bool:
-    """Reject justifications with no real content: repeated characters,
-    punctuation-only spam, or too few distinct letters to read as a reason."""
     letters = _LETTER_RE.findall(text.lower())
     if len(set(letters)) < _MIN_DISTINCT_LETTERS:
         return False
-    # A single character dominating the text (ignoring whitespace) is a sign
-    # of spam even when enough distinct letters technically appear elsewhere.
     stripped = re.sub(r"\s+", "", text)
     if not stripped:
         return False
@@ -69,7 +62,6 @@ class ReviewDecision:
 
 def normalize_decisions(raw: object, baseline_ids: set[int], *, strict: bool = False
                         ) -> dict[int, ReviewDecision]:
-    """Normalize serialized decisions and optionally reject corrupt active entries."""
     if not isinstance(raw, Mapping):
         if strict:
             raise ValueError("Review state must be a mapping")
@@ -85,6 +77,8 @@ def normalize_decisions(raw: object, baseline_ids: set[int], *, strict: bool = F
                 raise ValueError(f"Invalid decision check ID: {raw_id!r}")
             continue
         if check_id not in baseline_ids:
+            if strict:
+                raise ValueError(f"Unknown decision check ID: {check_id}")
             continue
         if strict and check_id in normalized:
             raise ValueError(f"Duplicate review state for check {check_id}")
