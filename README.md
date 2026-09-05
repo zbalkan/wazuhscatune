@@ -21,23 +21,29 @@ a dependency, Python lifecycle change, or concrete user need requires it; versio
 are not added or removed merely to track every new Python release.
 
 The application is intended for one user on the local machine. It is not a web
-service, server application, or multi-user application, and production deployment
-is explicitly unsupported.
+service, server application, multi-user application, or Python library, and
+production deployment is explicitly unsupported.
 
 During the alpha series, persisted draft files and internal Python APIs may change
-without compatibility guarantees. The distribution name is `wazuhscatune`; the
-internal `sca` import package is an implementation detail and should not be used
-as a public API.
+without compatibility guarantees. The distribution name and supported command are
+both `wazuhscatune`; the internal `sca` package is an implementation detail and is
+not a supported API or invocation surface.
 
 ## Installation
 
-Install from the repository with Python 3.11 or newer:
+Install the application with `pipx` using Python 3.11 or newer:
 
 ```bash
-python -m pip install .
+pipx install wazuhscatune
 ```
 
-For development and testing:
+To install directly from a local checkout instead:
+
+```bash
+pipx install .
+```
+
+For development and testing only, contributors may use an editable `pip` install:
 
 ```bash
 python -m pip install -e '.[dev]'
@@ -45,16 +51,10 @@ python -m pip install -e '.[dev]'
 
 ## Run
 
-Start the helper with the installed command:
+Start the application with its installed command:
 
 ```bash
 wazuhscatune
-```
-
-Alternatively, run the package module:
-
-```bash
-python -m sca.app
 ```
 
 The helper always listens on `http://127.0.0.1:5000`, opens the local browser,
