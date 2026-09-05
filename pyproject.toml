@@ -7,7 +7,7 @@ name = "wazuhscatune"
 version = "0.1.0"
 description = "Tailor Wazuh SCA baselines with documented exceptions"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [
@@ -27,7 +27,6 @@ classifiers = [
   "Operating System :: MacOS",
   "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -75,7 +74,7 @@ testpaths = ["sca/tests"]
 addopts = "--strict-config --strict-markers"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 packages = ["sca"]
 check_untyped_defs = true
 no_implicit_optional = true
