@@ -16,7 +16,7 @@ ENCODING = 'UTF-8'
 
 def escape_markdown(value: object) -> str:
     text = html.escape(str(value), quote=False).replace('\\', '\\\\')
-    for character in '[]()':
+    for character in '[]()#->*_`':
         text = text.replace(character, f'\\{character}')
     return text
 
