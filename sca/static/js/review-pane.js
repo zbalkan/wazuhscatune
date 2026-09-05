@@ -5,6 +5,7 @@ class ReviewPane {
         this.decisions = decisions;
         this.currentCheckId = null;
         this.saveInFlight = false;
+        this.dirty = false;
 
         this.list = document.getElementById('check-list');
         this.acceptRadio = document.querySelector('input[name="decision"][value="include"]');
@@ -28,17 +29,33 @@ class ReviewPane {
         this.list.querySelectorAll('.check-row').forEach(row => {
             row.addEventListener('click', () => this.selectCheck(row.dataset.checkId));
         });
-        this.acceptRadio.addEventListener('change', () => this.updateDecisionForm());
-        this.exceptionRadio.addEventListener('change', () => this.updateDecisionForm());
+        this.acceptRadio.addEventListener('change', () => {
+            this.markDirty();
+            this.updateDecisionForm();
+        });
+        this.exceptionRadio.addEventListener('change', () => {
+            this.markDirty();
+            this.updateDecisionForm();
+        });
         this.justificationInput.addEventListener('input', () => {
+            this.markDirty();
             this.justificationCount.textContent = this.justificationInput.value.length;
         });
         this.previousButton.addEventListener('click', () => this.selectPrevious());
         this.saveNextButton.addEventListener('click', () => this.saveAndNext());
     }
 
+    markDirty() {
+        this.dirty = true;
+        document.getElementById('review-decisions-btn').disabled = true;
+    }
+
     selectCheck(checkId) {
         const id = String(checkId);
+        if (this.dirty && this.currentCheckId !== null && id !== this.currentCheckId) {
+            showToast('Save this decision before moving to another check', 'error');
+            return;
+        }
         const check = this.checks.find(item => item.id === id);
         if (!check) return;
 
@@ -65,6 +82,7 @@ class ReviewPane {
             this.justificationInput.value = '';
         }
         this.justificationCount.textContent = this.justificationInput.value.length;
+        this.dirty = false;
         this.updateDecisionForm();
         this.updateNavigation();
     }
@@ -142,6 +160,7 @@ class ReviewPane {
 
             this.decisions[checkId] = data.decision;
             this.updateRow(checkId, data.decision);
+            this.dirty = false;
             this.applyStats(data.stats);
             document.dispatchEvent(new CustomEvent('reviewDecisionChanged', {
                 detail: {checkId}
@@ -195,7 +214,7 @@ class ReviewPane {
         document.getElementById('unreviewed-count').textContent = stats.unreviewed;
         document.getElementById('effective-count').textContent = stats.effective_included;
         document.getElementById('progress-fill').style.width = `${stats.review_completion}%`;
-        document.getElementById('review-decisions-btn').disabled = stats.unreviewed !== 0;
+        document.getElementById('review-decisions-btn').disabled = stats.unreviewed !== 0 || this.dirty;
     }
 
     filterRows(checkIds) {
