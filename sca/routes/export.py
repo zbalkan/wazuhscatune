@@ -24,7 +24,10 @@ def _baseline_path() -> str:
 
 def _review_complete(guide: Guide, decisions: object) -> bool:
     baseline_ids = {check.id for check in guide.sca.checks}
-    normalized = normalize_decisions(decisions, baseline_ids)
+    try:
+        normalized = normalize_decisions(decisions, baseline_ids, strict=True)
+    except ValueError:
+        return False
     return set(normalized) == baseline_ids
 
 
@@ -39,7 +42,8 @@ def approval_page() -> wResponse | str:
         if not _review_complete(guide, decisions):
             return redirect(url_for('review.review_page'))
 
-        normalized = normalize_decisions(decisions, {check['id'] for check in checks})
+        normalized = normalize_decisions(
+            decisions, {check['id'] for check in checks}, strict=True)
         excluded_checks = [
             {
                 'id': check['id'],
