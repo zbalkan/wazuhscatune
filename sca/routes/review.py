@@ -48,7 +48,7 @@ def review_page():
                              decisions=decisions_int, stats=stats)
     except Exception:
         logger.exception("Unable to load review page")
-        return jsonify({'error': 'Unable to process SCA file.'}), 500
+        raise
 
 
 @review_bp.route('/api/check/<int:check_id>')
