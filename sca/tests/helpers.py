@@ -70,7 +70,7 @@ def app_with_session(tmp_path):
             session_id=str(uuid.uuid4()),
             baseline_filename='base.yml',
             custom_name='Tailored',
-            sanitized_name='tailored',
+            sanitized_name='a_tailored_policy',
             custom_description='Description',
             decisions={},
         )
