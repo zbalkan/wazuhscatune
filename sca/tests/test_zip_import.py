@@ -1,10 +1,11 @@
 import io
+import uuid
 import zipfile
 
 from ruamel.yaml import YAML
 
 from sca.app import create_app
-from sca.tests.helpers import baseline
+from sca.tests.helpers import baseline, write_yaml
 
 
 def _client(tmp_path):
@@ -39,15 +40,32 @@ def _upload_data(file):
 
 
 def test_exported_zip_policy_can_be_imported(tmp_path):
-    archive = io.BytesIO()
-    with zipfile.ZipFile(archive, 'w') as bundle:
-        bundle.writestr('tailored.yml', _policy_yaml())
-        bundle.writestr('tailored_exceptions.yml', 'exceptions: []\n')
-    archive.seek(0)
+    client = _client(tmp_path)
+    write_yaml(tmp_path / 'uploads' / 'base.yml', baseline())
+    with client.session_transaction() as sess:
+        sess.update(
+            session_id=str(uuid.uuid4()),
+            baseline_filename='base.yml',
+            custom_name='Imported Policy Exceptions',
+            sanitized_name='imported_policy_exceptions',
+            custom_description='Imported policy description long enough for the required form validation.',
+            decisions={
+                '1': {'decision': 'accepted', 'justification': None},
+                '2': {'decision': 'accepted', 'justification': None},
+            },
+        )
 
-    response = _client(tmp_path).post(
+    export_response = client.post('/api/export')
+    assert export_response.status_code == 200
+    with client.session_transaction() as sess:
+        archive_path = sess['export_zip_path']
+
+    with open(archive_path, 'rb') as stream:
+        archive = io.BytesIO(stream.read())
+
+    response = client.post(
         '/upload',
-        data=_upload_data((archive, 'tailored_export.zip')),
+        data=_upload_data((archive, 'imported_policy_exceptions_export.zip')),
         content_type='multipart/form-data',
     )
 
@@ -70,3 +88,23 @@ def test_zip_import_requires_exactly_one_policy_yaml(tmp_path):
 
     assert response.status_code == 400
     assert 'exactly one policy YAML' in response.json['error']
+
+
+def test_unsupported_zip_member_returns_bad_request(tmp_path, monkeypatch):
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w') as bundle:
+        bundle.writestr('policy.yml', _policy_yaml())
+    archive.seek(0)
+
+    def unsupported(*args, **kwargs):
+        raise NotImplementedError('unsupported compression')
+
+    monkeypatch.setattr(zipfile.ZipFile, 'open', unsupported)
+    response = _client(tmp_path).post(
+        '/upload',
+        data=_upload_data((archive, 'unsupported.zip')),
+        content_type='multipart/form-data',
+    )
+
+    assert response.status_code == 400
+    assert 'unsupported ZIP archive' in response.json['error']
