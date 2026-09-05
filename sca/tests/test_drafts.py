@@ -47,7 +47,10 @@ def test_delete_active_draft_clears_session(tmp_path):
     assert service.load_draft(session_id) is None
     assert not (tmp_path / 'uploads' / 'base.yml').exists()
     with client.session_transaction() as sess:
-        assert dict(sess) == {}
+        assert set(sess) <= {'_permanent'}
+        assert 'session_id' not in sess
+        assert 'baseline_filename' not in sess
+        assert 'decisions' not in sess
 
 
 def test_delete_draft_rejects_invalid_and_missing_ids(tmp_path):
