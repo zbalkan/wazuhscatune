@@ -17,54 +17,47 @@
         </ul>
     </div>
     {% endif %}
+
     <div class="upload-container">
-        <h2>Upload Baseline SCA File</h2>
-        <p class="description">Upload a Wazuh SCA baseline to create a tailored policy with documented exceptions.</p>
+        <h2>Upload SCA Policy</h2>
+        <p class="description">Upload a Wazuh SCA YAML policy or a ZIP exported by wazuhscatune.</p>
 
         <form id="upload-form" enctype="multipart/form-data">
             <div class="form-group">
-                <label for="file-input" class="form-label">SCA YAML File</label>
+                <label for="file-input" class="form-label">SCA YAML or exported ZIP</label>
                 <div class="file-upload-area" id="drop-zone">
-                    <input type="file" id="file-input" name="file" accept=".yml,.yaml" hidden>
+                    <input type="file" id="file-input" name="file" accept=".yml,.yaml,.zip" hidden>
                     <div class="upload-prompt">
                         <svg class="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                         </svg>
                         <p class="upload-text">Drop file here or <span class="upload-link">browse</span></p>
-                        <p class="upload-hint">Supports .yml and .yaml files (max 16MB)</p>
+                        <p class="upload-hint">Supports .yml, .yaml, and exported .zip files (max 16MB)</p>
                     </div>
                     <div class="file-selected" id="file-selected" style="display: none;">
                         <p class="selected-file-name" id="selected-file-name"></p>
                         <button type="button" class="btn-remove" id="remove-file-btn">&times;</button>
                     </div>
                 </div>
-                <div class="validation-feedback" id="file-validation"></div>
             </div>
 
             <div class="form-group">
                 <label for="custom-name" class="form-label">Custom Policy Name <span class="required">*</span></label>
-                <input type="text" id="custom-name" name="custom_name" 
-                       class="form-input" placeholder="Enter policy name (15-100 characters)" 
+                <input type="text" id="custom-name" name="custom_name"
+                       class="form-input" placeholder="Enter policy name (15-100 characters)"
                        minlength="15" maxlength="100" required>
-                <div class="filename-hint" id="filename-hint" style="display: none; margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
-                    Filename: <code id="sanitized-filename" style="background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px;"></code>
-                </div>
-                <div class="validation-feedback" id="name-validation"></div>
             </div>
 
             <div class="form-group">
                 <label for="custom-description" class="form-label">Custom Policy Description <span class="required">*</span></label>
-                <textarea id="custom-description" name="custom_description" 
-                          class="form-textarea" placeholder="Enter policy description (50-500 characters)" 
+                <textarea id="custom-description" name="custom_description"
+                          class="form-textarea" placeholder="Enter policy description (50-500 characters)"
                           minlength="50" maxlength="500" rows="4" required></textarea>
                 <div class="char-count"><span id="desc-char-count">0</span>/500</div>
-                <div class="validation-feedback" id="desc-validation"></div>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
-                    Start Review
-                </button>
+                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>Start Review</button>
             </div>
         </form>
     </div>
@@ -76,14 +69,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.delete-draft-btn').forEach(button => {
         button.addEventListener('click', async function() {
-            const draftId = this.dataset.draftId;
             if (!confirm('Delete this saved draft?')) return;
             try {
-                const response = await fetch(`/api/drafts/${encodeURIComponent(draftId)}`, {method: 'DELETE'});
+                const response = await fetch(`/api/drafts/${encodeURIComponent(this.dataset.draftId)}`, {method: 'DELETE'});
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Delete failed');
-                const item = this.closest('li');
-                if (item) item.remove();
+                this.closest('li')?.remove();
                 showToast('Draft deleted', 'success');
             } catch (error) {
                 showToast(error.message || 'Unable to delete draft', 'error');
@@ -94,168 +85,77 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('upload-form');
     const fileInput = document.getElementById('file-input');
     const dropZone = document.getElementById('drop-zone');
-    const fileSelected = document.getElementById('file-selected');
-    const selectedFileName = document.getElementById('selected-file-name');
-    const removeFileBtn = document.getElementById('remove-file-btn');
-    const submitBtn = document.getElementById('submit-btn');
-    const customName = document.getElementById('custom-name');
-    const customDesc = document.getElementById('custom-description');
-    const descCharCount = document.getElementById('desc-char-count');
-    const filenameHint = document.getElementById('filename-hint');
-    const sanitizedFilename = document.getElementById('sanitized-filename');
-    
+    const prompt = dropZone.querySelector('.upload-prompt');
+    const selected = document.getElementById('file-selected');
+    const selectedName = document.getElementById('selected-file-name');
+    const submit = document.getElementById('submit-btn');
+    const name = document.getElementById('custom-name');
+    const description = document.getElementById('custom-description');
+    const count = document.getElementById('desc-char-count');
     let selectedFile = null;
 
-    // Sanitize policy name for filename
-    function sanitizePolicyName(name) {
-        if (!name) return '';
-        
-        // Convert to lowercase
-        let sanitized = name.toLowerCase();
-        
-        // Remove or replace problematic characters
-        // Keep alphanumeric, spaces, hyphens, and underscores
-        sanitized = sanitized.replace(/[^a-z0-9\s\-_]/g, '');
-        
-        // Replace multiple spaces/hyphens with single space
-        sanitized = sanitized.replace(/[\s\-]+/g, ' ');
-        
-        // Trim whitespace
-        sanitized = sanitized.trim();
-        
-        // Replace spaces with underscores
-        sanitized = sanitized.replace(/\s+/g, '_');
-        
-        // Remove leading/trailing underscores
-        sanitized = sanitized.replace(/^_+|_+$/g, '');
-        
-        return sanitized;
+    function validate() {
+        submit.disabled = !(selectedFile &&
+            name.value.trim().length >= 15 && name.value.trim().length <= 100 &&
+            description.value.trim().length >= 50 && description.value.trim().length <= 500);
     }
 
-    // Update filename hint when policy name changes
-    customName.addEventListener('input', function() {
-        const sanitized = sanitizePolicyName(this.value);
-        if (sanitized && this.value.length >= 15) {
-            sanitizedFilename.textContent = sanitized + '.yml';
-            filenameHint.style.display = 'block';
-        } else {
-            filenameHint.style.display = 'none';
-        }
-    });
+    function chooseFile(file) {
+        selectedFile = file;
+        selectedName.textContent = file.name;
+        prompt.style.display = 'none';
+        selected.style.display = 'flex';
+        validate();
+    }
 
-    // Character counter
-    customDesc.addEventListener('input', function() {
-        descCharCount.textContent = this.value.length;
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) chooseFile(fileInput.files[0]);
     });
-
-    // File input change
-    fileInput.addEventListener('change', function(e) {
-        if (e.target.files.length > 0) {
-            handleFileSelect(e.target.files[0]);
-        }
-    });
-
-    // Drag and drop
-    dropZone.addEventListener('click', function() {
-        fileInput.click();
-    });
-
-    dropZone.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', event => {
+        event.preventDefault();
         dropZone.classList.add('drag-over');
     });
-
-    dropZone.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', event => {
+        event.preventDefault();
         dropZone.classList.remove('drag-over');
+        if (event.dataTransfer.files.length) chooseFile(event.dataTransfer.files[0]);
     });
-
-    dropZone.addEventListener('drop', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove('drag-over');
-        
-        if (e.dataTransfer.files.length > 0) {
-            handleFileSelect(e.dataTransfer.files[0]);
-        }
-    });
-
-    // Remove file
-    removeFileBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        clearFileSelection();
-    });
-
-    function handleFileSelect(file) {
-        selectedFile = file;
-        selectedFileName.textContent = file.name;
-        dropZone.querySelector('.upload-prompt').style.display = 'none';
-        fileSelected.style.display = 'flex';
-        validateForm();
-    }
-
-    function clearFileSelection() {
+    document.getElementById('remove-file-btn').addEventListener('click', event => {
+        event.stopPropagation();
         selectedFile = null;
         fileInput.value = '';
-        dropZone.querySelector('.upload-prompt').style.display = 'block';
-        fileSelected.style.display = 'none';
-        document.getElementById('file-validation').textContent = '';
-        validateForm();
-    }
+        prompt.style.display = 'block';
+        selected.style.display = 'none';
+        validate();
+    });
+    name.addEventListener('input', validate);
+    description.addEventListener('input', () => {
+        count.textContent = description.value.length;
+        validate();
+    });
 
-    function validateForm() {
-        const hasFile = selectedFile !== null;
-        const hasName = customName.value.trim().length >= 15 && customName.value.trim().length <= 100;
-        const hasDesc = customDesc.value.trim().length >= 50 && customDesc.value.trim().length <= 500;
-        
-        submitBtn.disabled = !(hasFile && hasName && hasDesc);
-    }
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (!selectedFile) return;
 
-    // Form validation on input
-    customName.addEventListener('input', validateForm);
-    customDesc.addEventListener('input', validateForm);
-
-    // Form submission
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        if (!selectedFile) {
-            showToast('Please select a file', 'error');
-            return;
+        const data = new FormData();
+        data.append('file', selectedFile);
+        data.append('custom_name', name.value.trim());
+        data.append('custom_description', description.value.trim());
+        submit.disabled = true;
+        submit.textContent = 'Uploading...';
+        try {
+            const response = await fetch('/upload', {method: 'POST', body: data});
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'Upload failed');
+            window.location.href = result.redirect;
+        } catch (error) {
+            showToast(error.message || 'Upload failed', 'error');
+            submit.textContent = 'Start Review';
+            validate();
         }
-
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('custom_name', customName.value.trim());
-        formData.append('custom_description', customDesc.value.trim());
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Uploading...';
-
-        fetch('/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('File uploaded successfully', 'success');
-                setTimeout(() => {
-                    window.location.href = data.redirect;
-                }, 500);
-            } else {
-                showToast(data.error || 'Upload failed', 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Start Review';
-            }
-        })
-        .catch(error => {
-            showToast('Upload failed: ' + error.message, 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Start Review';
-        });
     });
 });
 </script>
