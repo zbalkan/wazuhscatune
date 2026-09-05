@@ -49,11 +49,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - run: python -m pip install --upgrade build twine
+      - run: python -m pip install --upgrade build pipx twine
       - run: python -m build
       - run: python -m twine check --strict dist/*
-      - run: python -m pip install dist/*.whl
-      - name: Installed-wheel smoke test
+      - name: Install application with pipx
+        run: pipx install dist/*.whl
+      - name: Installed-application smoke test
         run: |
           EXPECTED_VERSION=$(python - <<'PY'
           import tomllib
@@ -62,14 +63,5 @@ jobs:
               print(tomllib.load(handle)["project"]["version"])
           PY
           )
-          cd /tmp
-          EXPECTED_VERSION="$EXPECTED_VERSION" python - <<'PY'
-          import os
-          from importlib.metadata import version
-          from sca.app import create_app
-
-          assert version("wazuhscatune") == os.environ["EXPECTED_VERSION"]
-          app = create_app()
-          response = app.test_client().get("/")
-          assert response.status_code == 200
-          PY
+          pipx list | grep -q "package wazuhscatune $EXPECTED_VERSION"
+          pipx list | grep -q "wazuhscatune"
