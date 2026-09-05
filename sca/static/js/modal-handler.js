@@ -33,7 +33,7 @@ class ModalHandler {
         this.decisions = decisions;
         this.cardManager = cardManager;
         this.currentCheckId = null;
-        
+
         this.modal = document.getElementById('check-modal');
         this.modalTitle = document.getElementById('modal-title');
         this.modalBody = document.getElementById('modal-body');
@@ -41,45 +41,36 @@ class ModalHandler {
         this.prevBtn = document.getElementById('modal-prev-btn');
         this.nextBtn = document.getElementById('modal-next-btn');
         this.saveBtn = document.getElementById('modal-save-btn');
-        
+
         this.includeRadio = document.querySelector('input[name="decision"][value="include"]');
         this.excludeRadio = document.querySelector('input[name="decision"][value="exclude"]');
         this.justificationArea = document.getElementById('justification-area');
         this.justificationInput = document.getElementById('justification-input');
         this.justCharCount = document.getElementById('just-char-count');
-        
+
         this.initializeEventListeners();
     }
-    
+
     initializeEventListeners() {
-        // Close modal
         this.closeBtn.addEventListener('click', () => this.closeModal());
         this.modal.querySelector('.modal-overlay').addEventListener('click', () => this.closeModal());
-        
-        // Navigation
         this.prevBtn.addEventListener('click', () => this.navigatePrevious());
         this.nextBtn.addEventListener('click', () => this.navigateNext());
-        
-        // Save
         this.saveBtn.addEventListener('click', () => this.saveDecision());
-        
-        // Radio button change
+
         const radios = document.querySelectorAll('input[name="decision"]');
         radios.forEach(radio => {
             radio.addEventListener('change', () => this.handleDecisionChange());
         });
-        
-        // Justification character count
+
         this.justificationInput.addEventListener('input', () => {
             this.justCharCount.textContent = this.justificationInput.value.length;
         });
-        
-        // Listen for openCheckModal event
+
         document.addEventListener('openCheckModal', (e) => {
             this.openModal(e.detail.checkId);
         });
-        
-        // Keyboard shortcuts
+
         document.addEventListener('keydown', (e) => {
             if (this.modal.style.display !== 'none') {
                 if (e.key === 'ArrowLeft') {
@@ -95,38 +86,35 @@ class ModalHandler {
             }
         });
     }
-    
+
     openModal(checkId) {
-        this.currentCheckId = checkId;
-        this.loadCheckData(checkId);
+        this.currentCheckId = String(checkId);
+        this.loadCheckData(this.currentCheckId);
         this.modal.style.display = 'block';
         document.body.style.overflow = 'hidden';
     }
-    
+
     closeModal() {
         this.modal.style.display = 'none';
         document.body.style.overflow = 'auto';
         this.currentCheckId = null;
     }
-    
+
     loadCheckData(checkId) {
         try {
-            // Get check data from in-memory array (no API call needed)
-            const check = this.checks.find(c => c.id === checkId);
+            const normalizedId = String(checkId);
+            const check = this.checks.find(c => c.id === normalizedId);
             if (!check) {
                 showToast('Check not found', 'error');
                 return;
             }
-            
-            // Get decision data from in-memory decisions
-            const decision = this.decisions[checkId] || { decision: 'unreviewed' };
-            
-            // Populate modal
+
+            const decision = this.decisions[normalizedId] || { decision: 'unreviewed' };
+
             document.getElementById('detail-id').textContent = check.id;
             document.getElementById('detail-title').textContent = check.title;
             document.getElementById('detail-description').textContent = check.description || 'No description available';
-            
-            // Impact
+
             const impactGroup = document.getElementById('impact-group');
             if (check.impact) {
                 document.getElementById('detail-impact').textContent = check.impact;
@@ -134,8 +122,7 @@ class ModalHandler {
             } else {
                 impactGroup.style.display = 'none';
             }
-            
-            // Rationale
+
             const rationaleGroup = document.getElementById('rationale-group');
             if (check.rationale) {
                 document.getElementById('detail-rationale').textContent = check.rationale;
@@ -143,8 +130,7 @@ class ModalHandler {
             } else {
                 rationaleGroup.style.display = 'none';
             }
-            
-            // Remediation
+
             const remediationGroup = document.getElementById('remediation-group');
             if (check.remediation) {
                 document.getElementById('detail-remediation').textContent = check.remediation;
@@ -152,8 +138,7 @@ class ModalHandler {
             } else {
                 remediationGroup.style.display = 'none';
             }
-            
-            // Compliance
+
             const complianceGroup = document.getElementById('compliance-group');
             const complianceEl = document.getElementById('detail-compliance');
             if (check.compliance && check.compliance.length > 0) {
@@ -163,8 +148,7 @@ class ModalHandler {
             } else {
                 complianceGroup.style.display = 'none';
             }
-            
-            // Set decision state
+
             if (decision.decision === 'exception') {
                 this.excludeRadio.checked = true;
                 this.justificationArea.style.display = 'block';
@@ -176,21 +160,19 @@ class ModalHandler {
                 this.justificationInput.value = '';
                 this.justCharCount.textContent = '0';
             }
-            
-            // Update navigation buttons
+
             this.updateNavigationButtons();
-            
         } catch (error) {
             showToast('Error loading check details', 'error');
             console.error(error);
         }
     }
-    
+
     formatCompliance(complianceList) {
         const container = document.createElement('ul');
         container.style.margin = '0';
         container.style.paddingLeft = '1.5rem';
-        
+
         complianceList.forEach(comp => {
             Object.entries(comp).forEach(([key, values]) => {
                 if (values && values.length > 0) {
@@ -204,10 +186,10 @@ class ModalHandler {
                 }
             });
         });
-        
+
         return container;
     }
-    
+
     handleDecisionChange() {
         if (this.excludeRadio.checked) {
             this.justificationArea.style.display = 'block';
@@ -216,7 +198,7 @@ class ModalHandler {
             this.justificationArea.style.display = 'none';
         }
     }
-    
+
     validateJustification() {
         const excluded = this.excludeRadio.checked;
         const justification = this.justificationInput.value.trim();
@@ -235,18 +217,18 @@ class ModalHandler {
 
         return null;
     }
-    
+
     async saveDecision() {
         const validationError = this.validateJustification();
         if (validationError) {
             showToast(validationError, 'error');
             return;
         }
-        
+
         const excluded = this.excludeRadio.checked;
         const decision = excluded ? 'exception' : 'accepted';
         const justification = this.justificationInput.value.trim();
-        
+
         try {
             const response = await fetch('/api/decision', {
                 method: 'POST',
@@ -257,19 +239,15 @@ class ModalHandler {
                     justification: justification
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
-                // Update in-memory decisions object
                 const normalized = data.decision;
                 this.decisions[this.currentCheckId] = normalized;
-                
-                // Update card manager
                 this.cardManager.updateCard(this.currentCheckId, normalized);
                 this.cardManager.applyStats(data.stats);
                 showToast('Decision saved', 'success');
-                // Don't close modal - user can continue with Next button or close manually
             } else {
                 showToast(data.error || 'Failed to save decision', 'error');
             }
@@ -278,25 +256,25 @@ class ModalHandler {
             console.error(error);
         }
     }
-    
+
     navigatePrevious() {
         const currentIndex = this.checks.findIndex(c => c.id === this.currentCheckId);
         if (currentIndex > 0) {
             const prevCheck = this.checks[currentIndex - 1];
-            this.loadCheckData(prevCheck.id);
             this.currentCheckId = prevCheck.id;
+            this.loadCheckData(prevCheck.id);
         }
     }
-    
+
     navigateNext() {
         const currentIndex = this.checks.findIndex(c => c.id === this.currentCheckId);
         if (currentIndex < this.checks.length - 1) {
             const nextCheck = this.checks[currentIndex + 1];
-            this.loadCheckData(nextCheck.id);
             this.currentCheckId = nextCheck.id;
+            this.loadCheckData(nextCheck.id);
         }
     }
-    
+
     updateNavigationButtons() {
         const currentIndex = this.checks.findIndex(c => c.id === this.currentCheckId);
         this.prevBtn.disabled = currentIndex <= 0;
@@ -304,5 +282,4 @@ class ModalHandler {
     }
 }
 
-// Make globally available
 window.ModalHandler = ModalHandler;
