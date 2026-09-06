@@ -10,6 +10,8 @@ Review states:
 - **Accepted** — retained in the tailored policy.
 - **Exception** — justified and removed from the tailored policy.
 
+![Review Wazuh SCA checks](assets/review.png "Review Wazuh SCA checks")
+
 ## Requirements
 
 Python 3.11 or newer. Python 3.11, 3.12, and 3.13 are tested on Windows, macOS,
@@ -42,6 +44,8 @@ wazuhscatune
 The application listens on `http://127.0.0.1:5000` and opens the local browser.
 If the browser does not open automatically, open that address manually.
 
+![Upload Wazuh SCA file](assets/upload.png "Upload Wazuh SCA file")
+
 ## Workflow
 
 1. Upload a Wazuh SCA `.yml`, `.yaml`, or a ZIP previously exported by
@@ -56,6 +60,8 @@ If the browser does not open automatically, open that address manually.
 
 Export is blocked until every check has been reviewed. The uploaded baseline is
 never modified.
+
+![Review decisions before export](assets/approval.png "Review decisions before export")
 
 ## Local data
 
