@@ -274,7 +274,7 @@ body.review-layout .app-main > .container {
 @media (max-width: 900px) {
     .review-workspace {
         grid-template-columns: 1fr;
-        grid-template-rows: minmax(180px, 38%) minmax(0, 62%);
+        grid-template-rows: minmax(180px, 38%) minmax(0, 1fr);
     }
 
     .review-list-pane {
@@ -299,5 +299,26 @@ body.review-layout .app-main > .container {
 
     .review-page .progress-bar {
         margin-bottom: var(--spacing-xs);
+    }
+}
+
+@media (max-height: 640px) {
+    body.review-layout {
+        height: auto;
+        min-height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    body.review-layout .app-main,
+    body.review-layout .app-main > .container,
+    .review-page {
+        height: auto;
+        flex: 0 0 auto;
+    }
+
+    .review-workspace {
+        height: clamp(300px, 65vh, 420px);
+        flex: 0 0 auto;
     }
 }
