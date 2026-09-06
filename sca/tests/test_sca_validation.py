@@ -1,4 +1,4 @@
-from sca.services.sca_service import validate_sca_file
+from sca.services.sca_service import _structure_error, validate_sca_file
 from sca.tests.helpers import baseline, write_yaml
 
 
@@ -78,9 +78,35 @@ def test_structural_amplification_is_rejected(tmp_path):
 
 
 def test_nested_variables_count_toward_structure_limit(tmp_path, monkeypatch):
-    monkeypatch.setattr('sca.services.sca_service.MAX_STRUCTURE_ITEMS', 30)
+    monkeypatch.setattr('sca.services.sca_service.MAX_STRUCTURE_ITEMS', 90)
+
+    flat = baseline()
+    flat['variables'] = {str(index): index for index in range(10)}
+    assert _validate(tmp_path, flat) == (True, None)
+
+    nested = baseline()
+    nested['variables'] = {'nested': {str(index): {'value': index} for index in range(10)}}
+    assert _validate(tmp_path, nested) == (False, 'SCA file is too structurally complex')
+
+
+def test_unsupported_yaml_collection_is_rejected(tmp_path):
     data = baseline()
-    data['variables'] = {'nested': {str(index): {'value': index} for index in range(10)}}
-    valid, message = _validate(tmp_path, data)
-    assert not valid
-    assert message == 'SCA file is too structurally complex'
+    data['variables'] = {'unsupported': {'one', 'two'}}
+    assert _validate(tmp_path, data) == (False, 'Unsupported YAML collection type')
+
+
+def test_structure_budget_short_circuits_repeated_subtree():
+    visited = [0]
+
+    class CountingList(list):
+        def __iter__(self):
+            for item in super().__iter__():
+                visited[0] += 1
+                if visited[0] > 20:
+                    raise AssertionError('structure walk did not short-circuit')
+                yield item
+
+    shared = CountingList(range(1_000))
+    data = [shared] * 1_000
+    assert _structure_error(data, 10) == 'SCA file is too structurally complex'
+    assert visited[0] < 20

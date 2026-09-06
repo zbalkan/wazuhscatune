@@ -1,5 +1,6 @@
 """SCA validation and review helpers."""
 import os
+from collections.abc import Collection
 from typing import Any
 
 from ruamel.yaml import YAML
@@ -11,22 +12,46 @@ from sca.internal.sca import SCA
 MAX_STRUCTURE_ITEMS = 100_000
 
 
-def _structure_size(value: Any, active: set[int] | None = None) -> int:
-    if not isinstance(value, (dict, list)):
-        return 1
+def _structure_error(value: Any, limit: int) -> str | None:
+    remaining = limit
+    active: set[int] = set()
 
-    active = set() if active is None else active
-    identity = id(value)
-    if identity in active:
-        raise ValueError("Recursive YAML structures are not supported")
+    def walk(item: Any) -> str | None:
+        nonlocal remaining
+        if remaining <= 0:
+            return "SCA file is too structurally complex"
+        remaining -= 1
 
-    active.add(identity)
-    try:
-        if isinstance(value, dict):
-            return 1 + sum(1 + _structure_size(item, active) for item in value.values())
-        return 1 + sum(_structure_size(item, active) for item in value)
-    finally:
-        active.remove(identity)
+        if isinstance(item, dict):
+            identity = id(item)
+            if identity in active:
+                return "Recursive YAML structures are not supported"
+            active.add(identity)
+            try:
+                for key, child in item.items():
+                    error = walk(key) or walk(child)
+                    if error:
+                        return error
+            finally:
+                active.remove(identity)
+        elif isinstance(item, list):
+            identity = id(item)
+            if identity in active:
+                return "Recursive YAML structures are not supported"
+            active.add(identity)
+            try:
+                for child in item:
+                    error = walk(child)
+                    if error:
+                        return error
+            finally:
+                active.remove(identity)
+        elif isinstance(item, Collection) and not isinstance(item, (str, bytes, bytearray)):
+            return "Unsupported YAML collection type"
+
+        return None
+
+    return walk(value)
 
 
 def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
@@ -40,8 +65,9 @@ def validate_sca_file(filepath: str) -> tuple[bool, str | None]:
 
         if not isinstance(data, dict):
             return False, "Invalid YAML format: root must be a mapping"
-        if _structure_size(data) > MAX_STRUCTURE_ITEMS:
-            return False, "SCA file is too structurally complex"
+        structure_error = _structure_error(data, MAX_STRUCTURE_ITEMS)
+        if structure_error:
+            return False, structure_error
 
         policy = data.get('policy')
         if not isinstance(policy, dict):
