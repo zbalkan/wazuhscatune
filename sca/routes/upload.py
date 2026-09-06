@@ -1,13 +1,17 @@
 """Upload and draft lifecycle routes."""
+import hashlib
 import logging
 import os
 import re
 import uuid
 import zipfile
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
 from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, session, url_for
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 from werkzeug.wrappers.response import Response as wResponse
@@ -28,6 +32,60 @@ def sanitize_policy_name(name: str) -> str:
     sanitized = re.sub(r'[^a-z0-9\s\-_]', '', name.lower())
     sanitized = re.sub(r'[\s\-]+', ' ', sanitized).strip().replace(' ', '_')
     return re.sub(r'^_+|_+$', '', sanitized)
+
+
+def _read_zip_member(archive: zipfile.ZipFile, member: zipfile.ZipInfo,
+                     max_size: int, label: str) -> bytes:
+    if member.file_size > max_size:
+        raise ValueError(f'{label} in ZIP exceeds the maximum upload size')
+    with archive.open(member) as source:
+        data = source.read(max_size + 1)
+    if len(data) > max_size:
+        raise ValueError(f'{label} in ZIP exceeds the maximum upload size')
+    return data
+
+
+def _validate_export_digest(archive: zipfile.ZipFile,
+                            yaml_members: list[zipfile.ZipInfo],
+                            policy: zipfile.ZipInfo, policy_data: bytes,
+                            max_size: int) -> None:
+    record_stem = f'{Path(policy.filename).stem.lower()}_exceptions'
+    records = [
+        item for item in yaml_members
+        if Path(item.filename).stem.lower() == record_stem
+    ]
+    if not records:
+        return
+    if len(records) != 1:
+        raise ValueError('ZIP contains ambiguous exception records')
+
+    record_data = _read_zip_member(archive, records[0], max_size, 'Exception record')
+    try:
+        record = YAML(typ='safe').load(record_data.decode('utf-8'))
+    except (UnicodeDecodeError, YAMLError) as error:
+        raise ValueError('Invalid exception record in ZIP') from error
+    if not isinstance(record, Mapping):
+        raise ValueError('Invalid exception record in ZIP')
+
+    tailored = record.get('tailored_policy')
+    if not isinstance(tailored, Mapping):
+        raise ValueError('Invalid exception record in ZIP')
+
+    expected_digest = tailored.get('sha256')
+    if expected_digest is None:
+        return
+    if (not isinstance(expected_digest, str)
+            or re.fullmatch(r'[0-9a-fA-F]{64}', expected_digest) is None):
+        raise ValueError('Invalid tailored policy SHA-256 in exception record')
+
+    recorded_file = tailored.get('file')
+    if (not isinstance(recorded_file, str)
+            or Path(recorded_file).name != Path(policy.filename).name):
+        raise ValueError('ZIP policy does not match exception record')
+
+    actual_digest = hashlib.sha256(policy_data).hexdigest()
+    if actual_digest != expected_digest.lower():
+        raise ValueError('ZIP policy SHA-256 does not match exception record')
 
 
 def _save_uploaded_policy(file: FileStorage, session_id: str) -> str:
@@ -60,15 +118,11 @@ def _save_uploaded_policy(file: FileStorage, session_id: str) -> str:
 
             policy = policies[0]
             max_size = current_app.config['MAX_CONTENT_LENGTH']
-            if policy.file_size > max_size:
-                raise ValueError('Policy YAML in ZIP exceeds the maximum upload size')
+            data = _read_zip_member(archive, policy, max_size, 'Policy YAML')
+            _validate_export_digest(archive, yaml_members, policy, data, max_size)
 
             member_name = secure_filename(Path(policy.filename).name)
             path = os.path.join(upload_root, f'{session_id}_{member_name}')
-            with archive.open(policy) as source:
-                data = source.read(max_size + 1)
-            if len(data) > max_size:
-                raise ValueError('Policy YAML in ZIP exceeds the maximum upload size')
             with open(path, 'wb') as destination:
                 destination.write(data)
             return path

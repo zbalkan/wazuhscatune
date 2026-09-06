@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import os
 import time
 import zipfile
@@ -107,7 +108,8 @@ def test_export_preserves_source_and_writes_provenance(tmp_path):
     with zipfile.ZipFile(archive) as bundle:
         assert set(bundle.namelist()) == {
             'tailored.yml', 'tailored_exceptions.yml', 'tailored_exceptions.md'}
-        tailored = _load_zip_yaml(bundle, 'tailored.yml')
+        tailored_bytes = bundle.read('tailored.yml')
+        tailored = YAML(typ='safe').load(tailored_bytes.decode('utf-8'))
         record = _load_zip_yaml(bundle, 'tailored_exceptions.yml')
         markdown = bundle.read('tailored_exceptions.md').decode('utf-8')
 
@@ -116,6 +118,8 @@ def test_export_preserves_source_and_writes_provenance(tmp_path):
     assert record['exceptions'][0]['check_id'] == 1
     assert len(record['baseline']['sha256']) == 64
     assert record['tailored_policy']['id'] == 'tailored'
+    assert record['tailored_policy']['file'] == 'tailored.yml'
+    assert record['tailored_policy']['sha256'] == hashlib.sha256(tailored_bytes).hexdigest()
     assert r'Needed \| because<br>legacy \\ app' in markdown
     assert YAML(typ='safe').load(path.read_text(encoding='utf-8')) == original
 

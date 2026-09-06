@@ -26,6 +26,11 @@ def escape_markdown_cell(value: object) -> str:
             .replace('\r\n', '<br>').replace('\n', '<br>').replace('\r', '<br>'))
 
 
+def _sha256(path: str) -> str:
+    with open(path, 'rb') as stream:
+        return hashlib.sha256(stream.read()).hexdigest()
+
+
 class Guide:
     def __init__(self, baseline_path: str) -> None:
         self.baseline_path = baseline_path
@@ -48,23 +53,24 @@ class Guide:
         with open(custom_path, mode='w', encoding=ENCODING) as stream:
             self.__yaml__.dump(custom, stream)
 
-    def export_exceptions(self, tailoring: Tailoring,
+    def export_exceptions(self, tailoring: Tailoring, tailored_path: str,
                           yml_path: str, md_path: str) -> None:
         sca = self.sca
-        with open(self.baseline_path, 'rb') as baseline:
-            digest = hashlib.sha256(baseline.read()).hexdigest()
+        baseline_digest = _sha256(self.baseline_path)
+        tailored_digest = _sha256(tailored_path)
 
         record = {
             'baseline': {
                 'name': sca.policy.name,
                 'id': sca.policy.id,
                 'file': sca.policy.file,
-                'sha256': digest,
+                'sha256': baseline_digest,
             },
             'tailored_policy': {
                 'name': tailoring.name,
                 'id': tailoring.id,
-                'file': f'{tailoring.id}.yml',
+                'file': os.path.basename(tailored_path),
+                'sha256': tailored_digest,
             },
             'generated_by': {'tool': 'wazuhscatune', 'version': VERSION},
             'generated_at': datetime.now(timezone.utc).isoformat(),
@@ -91,7 +97,7 @@ class Guide:
             stream.write(
                 f"Baseline: {escape_markdown(sca.policy.name)} "
                 f"(`{escape_markdown(sca.policy.id)}`)  \n"
-                f"SHA-256: `{digest}`\n\n"
+                f"SHA-256: `{baseline_digest}`\n\n"
             )
             stream.write("## Exceptions\n\n")
             stream.write("| Check ID | Check Name | Justification |\n")

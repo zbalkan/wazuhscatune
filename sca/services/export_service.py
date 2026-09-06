@@ -27,7 +27,8 @@ def export_policy(guide: Guide, tailoring: Tailoring,
 
     try:
         guide.export_custom(tailoring, str(policy))
-        guide.export_exceptions(tailoring, str(exceptions_yml), str(exceptions_md))
+        guide.export_exceptions(
+            tailoring, str(policy), str(exceptions_yml), str(exceptions_md))
         with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as bundle:
             for path in (policy, exceptions_yml, exceptions_md):
                 bundle.write(path, path.name)

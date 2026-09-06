@@ -1,3 +1,4 @@
+import hashlib
 import io
 import uuid
 import zipfile
@@ -26,10 +27,25 @@ def _client(tmp_path):
     return create_app(TestConfig).test_client()
 
 
-def _policy_yaml() -> bytes:
+def _yaml_bytes(value) -> bytes:
     text = io.StringIO()
-    YAML().dump(baseline(), text)
+    YAML().dump(value, text)
     return text.getvalue().encode('utf-8')
+
+
+def _policy_yaml() -> bytes:
+    return _yaml_bytes(baseline())
+
+
+def _exception_record(filename: str, digest: str | None = None) -> bytes:
+    tailored_policy = {
+        'name': 'Imported Policy',
+        'id': 'policy',
+        'file': filename,
+    }
+    if digest is not None:
+        tailored_policy['sha256'] = digest
+    return _yaml_bytes({'tailored_policy': tailored_policy})
 
 
 def _upload_data(file):
@@ -84,6 +100,32 @@ def test_exported_zip_policy_can_be_imported(tmp_path):
         content_type='multipart/form-data',
     )
 
+    assert response.status_code == 200
+    assert response.json['success'] is True
+
+
+def test_zip_import_rejects_tampered_exported_policy(tmp_path):
+    original = _policy_yaml()
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w') as bundle:
+        bundle.writestr('policy.yml', original + b'\n# modified after export\n')
+        bundle.writestr(
+            'policy_exceptions.yml',
+            _exception_record('policy.yml', hashlib.sha256(original).hexdigest()),
+        )
+
+    response = _upload_zip(tmp_path, archive, 'tampered.zip')
+    assert response.status_code == 400
+    assert 'SHA-256 does not match' in response.json['error']
+
+
+def test_zip_import_accepts_legacy_exception_record_without_digest(tmp_path):
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w') as bundle:
+        bundle.writestr('policy.yml', _policy_yaml())
+        bundle.writestr('policy_exceptions.yml', _exception_record('policy.yml'))
+
+    response = _upload_zip(tmp_path, archive, 'legacy.zip')
     assert response.status_code == 200
     assert response.json['success'] is True
 
