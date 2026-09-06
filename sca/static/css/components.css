@@ -1,8 +1,51 @@
 /* Review list and reading pane */
+body.review-layout {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+body.review-layout .app-header,
+body.review-layout .app-footer {
+    flex: 0 0 auto;
+}
+
+body.review-layout .app-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 0;
+}
+
+body.review-layout .app-main > .container {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.review-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--spacing-lg);
+}
+
+.review-page .review-header,
+.review-page .progress-indicator {
+    flex: 0 0 auto;
+}
+
+.review-page .progress-indicator {
+    margin-bottom: var(--spacing-lg);
+}
+
 .review-workspace {
     display: grid;
-    grid-template-columns: minmax(260px, 25%) minmax(0, 75%);
-    min-height: 680px;
+    grid-template-columns: clamp(240px, 25vw, 340px) minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
     background: var(--color-white);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
@@ -12,12 +55,15 @@
 .review-list-pane {
     border-right: 1px solid var(--color-border);
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background: var(--color-white);
 }
 
 .review-list-filters {
+    flex: 0 0 auto;
     padding: var(--spacing-md);
     border-bottom: 1px solid var(--color-border);
     display: grid;
@@ -43,8 +89,11 @@
 }
 
 .check-list {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    flex: 1;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .check-row {
@@ -138,24 +187,30 @@
 
 .reading-pane {
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background: var(--color-white);
 }
 
-.reading-pane-content {
-    padding: var(--spacing-xl);
-    overflow-y: auto;
-    flex: 1;
-}
-
 .reading-pane-actions {
+    flex: 0 0 auto;
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-md);
-    padding: var(--spacing-lg) var(--spacing-xl);
-    border-top: 1px solid var(--color-border);
+    padding: var(--spacing-md) var(--spacing-xl);
+    border-bottom: 1px solid var(--color-border);
     background: var(--color-background);
+}
+
+.reading-pane-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--spacing-xl);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .check-details,
@@ -219,11 +274,30 @@
 @media (max-width: 900px) {
     .review-workspace {
         grid-template-columns: 1fr;
+        grid-template-rows: minmax(180px, 38%) minmax(0, 62%);
     }
 
     .review-list-pane {
         border-right: 0;
         border-bottom: 1px solid var(--color-border);
-        max-height: 420px;
+    }
+}
+
+@media (max-height: 760px) {
+    .review-page {
+        padding-top: var(--spacing-sm);
+    }
+
+    .review-page .review-header,
+    .review-page .progress-indicator {
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .review-page .progress-indicator {
+        padding: var(--spacing-md);
+    }
+
+    .review-page .progress-bar {
+        margin-bottom: var(--spacing-xs);
     }
 }

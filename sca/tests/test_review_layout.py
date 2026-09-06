@@ -6,10 +6,12 @@ def test_review_uses_reading_pane_and_save_next(tmp_path):
     html = response.get_data(as_text=True)
 
     assert response.status_code == 200
+    assert '<body class="review-layout">' in html
     assert 'id="check-list"' in html
     assert 'class="reading-pane"' in html
     assert 'id="save-next-btn"' in html
     assert 'Save &amp; Next' in html
+    assert html.index('class="reading-pane-actions"') < html.index('class="reading-pane-content"')
     assert 'id="check-modal"' not in html
 
 

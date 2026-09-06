@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Review - wazuhscatune{% endblock %}
+{% block body_class %}review-layout{% endblock %}
 
 {% block content %}
 <div class="review-page">
@@ -51,6 +52,10 @@
         </aside>
 
         <section class="reading-pane" aria-labelledby="detail-title">
+            <div class="reading-pane-actions">
+                <button class="btn btn-secondary" id="previous-btn" type="button">Previous</button>
+                <button class="btn btn-primary" id="save-next-btn" type="button">Save &amp; Next</button>
+            </div>
             <div class="reading-pane-content">
                 <div class="detail-group">
                     <label>Check ID</label>
@@ -101,10 +106,6 @@
                         <div class="char-count"><span id="just-char-count">0</span>/1000</div>
                     </div>
                 </div>
-            </div>
-            <div class="reading-pane-actions">
-                <button class="btn btn-secondary" id="previous-btn" type="button">Previous</button>
-                <button class="btn btn-primary" id="save-next-btn" type="button">Save &amp; Next</button>
             </div>
         </section>
     </div>
