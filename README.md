@@ -1,34 +1,105 @@
-# sca_guide
+# wazuhscatune
 
-A helper for Wazuh Security Configuration Assessment (SCA) to create a custom SCA based on loosening.
+`wazuhscatune` is a local application for tailoring a trusted Wazuh Security
+Configuration Assessment (SCA) baseline. It opens a browser-based review UI where
+each check is either accepted or recorded as an exception with a justification.
 
-## How it works
+Review states:
 
-The pronciple behind is that one must stick to a hardening guide, then should analyze the requirements in order to create a list of loosening factors. Every environment is different, and every environment must stick to a baseline. A loosening guide is better than a custom made hardening guide in most cases.
+- **Unreviewed** — not yet explicitly reviewed.
+- **Accepted** — retained in the tailored policy.
+- **Exception** — justified and removed from the tailored policy.
 
-Here, the simple terminal application asks each requirement one by one, and if you want to add an exception, you must specify a justification. Therefore, you have a list of exceptions documented for you.
+![Review Wazuh SCA checks](assets/review.png "Review Wazuh SCA checks")
+
+## Requirements
+
+Python 3.11 or newer. Python 3.11, 3.12, and 3.13 are tested on Windows, macOS,
+and Linux.
+
+`wazuhscatune` is a local single-user application. Server deployment, multi-user
+operation, and use of the internal `sca` package as a Python library are not
+supported.
+
+## Install
+
+Install with `pipx`:
 
 ```bash
-usage: sca_guide.py [-h] [--baseline BASELINE] [--custom CUSTOM] [--loosening LOOSENING]
-
-scaGuide (0.1) is a demo application.
-
-options:
-  -h, --help            show this help message and exit
-  --baseline BASELINE, -b BASELINE
-                        Path to the Wazuh SCA file to start with
-  --custom CUSTOM, -c CUSTOM
-                        Path to the custom Wazuh SCA file to save
-  --loosening LOOSENING, -l LOOSENING
-                        Path to the list of suppression decisions from the Wazuh SCA file
+pipx install wazuhscatune
 ```
 
-## Installation
+From a local checkout:
 
-Use either `pip install -r requirements.txt` or `pip install -r requirements.dev.txt` if you want to develop the code.
+```bash
+pipx install .
+```
 
-## What is next?
+## Run
 
-When you have a custom SCA file created, follow [Wazuh documentation](https://documentation.wazuh.com/current/user-manual/capabilities/sec-config-assessment/creating-custom-policies.html).
+```bash
+wazuhscatune
+```
 
-It is better to store the loosening file next to it as a helper, and in whatever documentation tool or source code repository you use in your team.
+The application listens on `http://127.0.0.1:5000` and opens the local browser.
+If the browser does not open automatically, open that address manually.
+
+![Upload Wazuh SCA file](assets/upload.png "Upload Wazuh SCA file")
+
+## Workflow
+
+1. Upload a Wazuh SCA `.yml`, `.yaml`, or a ZIP previously exported by
+   `wazuhscatune`.
+2. Name and describe the tailored policy.
+3. Review every check as accepted or as a justified exception.
+4. Review the final decisions.
+5. Export a ZIP containing:
+   - `<policy>.yml` — tailored SCA policy;
+   - `<policy>_exceptions.yml` — machine-readable exception record;
+   - `<policy>_exceptions.md` — human-readable exception record.
+
+Export is blocked until every check has been reviewed. The uploaded baseline is
+never modified.
+
+![Review decisions before export](assets/approval.png "Review decisions before export")
+
+## Local data
+
+Review state is saved locally after each decision. Drafts can be recovered while
+their uploaded baseline remains available. Application-created temporary files
+expire after 48 hours by default; configure this with
+`WAZUHSCATUNE_FILE_TTL_HOURS`.
+
+The browser session lifetime is 24 hours. Uploads, drafts, session files, exports,
+and logs remain on the local machine.
+
+## Validation
+
+Input validation covers YAML syntax and expected Wazuh SCA structure, including
+policy metadata, requirements, checks, rule lists, compliance mappings, and unique
+integer check IDs. ZIP imports are bounded by upload, member-count, and extracted
+policy-size limits. The application does not execute SCA checks or emulate the
+Wazuh SCA engine.
+
+## Development
+
+For development and testing:
+
+```bash
+python -m pip install -e '.[dev]'
+python -m pytest
+python -m pycodestyle sca
+python -m mypy sca
+python -m compileall -q sca
+python -m build
+python -m twine check --strict dist/*
+```
+
+Python 3.11 is the compatibility floor. `pyproject.toml` is the authoritative
+package and dependency declaration.
+
+Release history is kept in [`CHANGELOG.md`](CHANGELOG.md).
+
+## License
+
+GNU General Public License v3 or later. See `LICENSE`.

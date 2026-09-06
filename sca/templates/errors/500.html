@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - wazuhscatune{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-content">
+        <h1 class="error-code">500</h1>
+        <h2 class="error-message">Internal Server Error</h2>
+        <p class="error-description">Something went wrong on our end. Please try again later.</p>
+        <a href="/" class="btn btn-primary">Go to Home</a>
+    </div>
+</div>
+{% endblock %}

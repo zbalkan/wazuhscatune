@@ -142,3 +142,10 @@ launch.json
 *.db
 .vscode
 .tmp*
+data/
+
+# Runtime application data
+sca/uploads/
+sca/drafts/
+sca/exports/
+sca/flask_session/

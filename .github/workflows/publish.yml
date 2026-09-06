@@ -1,0 +1,104 @@
+name: Build and publish release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Require main branch
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Publishing must be triggered from main."
+            exit 1
+          fi
+
+      - name: Read package version
+        id: version
+        run: |
+          VERSION=$(python - <<'PY'
+          import tomllib
+
+          with open("pyproject.toml", "rb") as handle:
+              print(tomllib.load(handle)["project"]["version"])
+          PY
+          )
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - run: python -m pip install --upgrade build pipx twine
+      - name: Build package
+        run: python -m build
+      - name: Validate package
+        run: python -m twine check --strict dist/*
+      - name: Install application with pipx
+        run: pipx install dist/*.whl
+      - name: Installed-application smoke test
+        run: |
+          pipx list | grep -q "package wazuhscatune ${{ steps.version.outputs.version }}"
+          wazuhscatune >/tmp/wazuhscatune.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for _ in {1..10}; do
+            if curl --fail --silent --show-error http://127.0.0.1:5000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wazuhscatune.log
+          exit 1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  tag:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Create version tag
+        run: |
+          TAG="v${{ needs.build.outputs.version }}"
+          CURRENT_SHA=$(git rev-parse HEAD)
+          git fetch --tags --force
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            TAG_SHA=$(git rev-list -n 1 "$TAG")
+            if [ "$TAG_SHA" != "$CURRENT_SHA" ]; then
+              echo "$TAG already points to $TAG_SHA, not $CURRENT_SHA."
+              exit 1
+            fi
+            echo "$TAG already points to this commit; continuing."
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+  publish:
+    needs: tag
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

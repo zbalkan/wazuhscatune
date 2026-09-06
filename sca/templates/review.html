@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Review - wazuhscatune{% endblock %}
+{% block body_class %}review-layout{% endblock %}
+
+{% block content %}
+<div class="review-page">
+    <div class="review-header">
+        <h2>{{ policy_name }}</h2>
+        <div class="review-actions">
+            <button class="btn btn-primary" id="review-decisions-btn" {% if stats.unreviewed %}disabled{% endif %}>Review Decisions</button>
+        </div>
+    </div>
+
+    <div class="progress-indicator">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: {{ stats.review_completion }}%"></div>
+        </div>
+        <p class="progress-text">
+            <span id="reviewed-count">{{ stats.reviewed }}</span> of <span id="total-count">{{ checks|length }}</span> checks reviewed
+            (<span id="excluded-count">{{ stats.exceptions }}</span> exceptions,
+            <span id="unreviewed-count">{{ stats.unreviewed }}</span> unreviewed,
+            <span id="effective-count">{{ stats.effective_included }}</span> effective checks)
+        </p>
+    </div>
+
+    <div class="review-workspace">
+        <aside class="review-list-pane" aria-label="Checks">
+            <div class="review-list-filters">
+                <input type="search" class="filter-search" id="search-input" placeholder="Search checks..." aria-label="Search checks">
+                <input type="search" class="filter-search" id="impact-search-input" placeholder="Search impact..." aria-label="Search impact">
+                <div class="review-status-filters">
+                    <label><input type="checkbox" name="status" value="accepted" checked> Accepted</label>
+                    <label><input type="checkbox" name="status" value="exception" checked> Exceptions</label>
+                    <label><input type="checkbox" name="status" value="unreviewed" checked> Unreviewed</label>
+                </div>
+                <button class="btn btn-outline btn-small" id="clear-filters-btn" type="button">Clear Filters</button>
+            </div>
+
+            <div class="check-list" id="check-list">
+                {% for check in checks %}
+                <button type="button" class="check-row" data-check-id="{{ check.id }}" aria-current="false">
+                    <span class="check-row-topline">
+                        <span class="check-id">Check #{{ check.id }}</span>
+                        <span class="card-status" data-status="unreviewed">Unreviewed</span>
+                    </span>
+                    <span class="check-row-title">{{ check.title }}</span>
+                    <span class="check-row-preview">{{ check.description[:100] }}{% if check.description|length > 100 %}...{% endif %}</span>
+                </button>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <section class="reading-pane" aria-labelledby="detail-title">
+            <div class="reading-pane-actions">
+                <button class="btn btn-secondary" id="previous-btn" type="button">Previous</button>
+                <button class="btn btn-primary" id="save-next-btn" type="button">Save &amp; Next</button>
+            </div>
+            <div class="reading-pane-content">
+                <div class="detail-group">
+                    <label>Check ID</label>
+                    <span id="detail-id"></span>
+                </div>
+                <div class="detail-group">
+                    <label>Title</label>
+                    <h3 id="detail-title"></h3>
+                </div>
+                <div class="detail-group">
+                    <label>Description</label>
+                    <p id="detail-description"></p>
+                </div>
+                <div class="detail-group" id="impact-group">
+                    <label>Impact</label>
+                    <p id="detail-impact"></p>
+                </div>
+                <div class="detail-group" id="rationale-group">
+                    <label>Rationale</label>
+                    <p id="detail-rationale"></p>
+                </div>
+                <div class="detail-group" id="remediation-group">
+                    <label>Remediation</label>
+                    <p id="detail-remediation"></p>
+                </div>
+                <div class="detail-group" id="compliance-group">
+                    <label>Compliance</label>
+                    <div id="detail-compliance"></div>
+                </div>
+
+                <div class="decision-section">
+                    <h3>Decision</h3>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="decision" value="include" checked>
+                            <span>Accept this check</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="decision" value="exclude">
+                            <span>Record an exception</span>
+                        </label>
+                    </div>
+                    <div class="justification-area" id="justification-area" hidden>
+                        <label for="justification-input">Justification <span class="required">*</span></label>
+                        <textarea id="justification-input" class="form-textarea"
+                                  placeholder="Enter justification (10-1000 characters)"
+                                  minlength="10" maxlength="1000" rows="5"></textarea>
+                        <div class="char-count"><span id="just-char-count">0</span>/1000</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+window.checksData = {{ checks|tojson }};
+window.decisionsData = {{ decisions|tojson }};
+window.statsData = {{ stats|tojson }};
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/review-pane.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filter-controller.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reviewPane = new ReviewPane(window.checksData, window.decisionsData, window.statsData);
+    new FilterController(window.checksData, reviewPane);
+
+    document.getElementById('review-decisions-btn').addEventListener('click', function() {
+        if (!this.disabled) window.location.href = '/approval';
+    });
+});
+</script>
+{% endblock %}

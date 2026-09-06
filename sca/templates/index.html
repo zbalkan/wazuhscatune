@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - wazuhscatune{% endblock %}
+
+{% block content %}
+<div class="upload-page">
+    {% if drafts %}
+    <div class="upload-container">
+        <h2>Recover a draft</h2>
+        <ul id="draft-list">
+            {% for draft in drafts %}
+            <li>
+                <a href="{{ url_for('upload.recover_draft', session_id=draft.session_id) }}">{{ draft.custom_name }}</a>
+                <button type="button" class="btn btn-outline delete-draft-btn" data-draft-id="{{ draft.session_id }}">Delete</button>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="upload-container">
+        <h2>Upload SCA Policy</h2>
+        <p class="description">Upload a Wazuh SCA YAML policy or a ZIP exported by wazuhscatune.</p>
+
+        <form id="upload-form" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file-input" class="form-label">SCA YAML or exported ZIP</label>
+                <div class="file-upload-area" id="drop-zone">
+                    <input type="file" id="file-input" name="file" accept=".yml,.yaml,.zip" hidden>
+                    <div class="upload-prompt">
+                        <svg class="upload-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p class="upload-text">Drop file here or <span class="upload-link">browse</span></p>
+                        <p class="upload-hint">Supports .yml, .yaml, and exported .zip files (max 16MB)</p>
+                    </div>
+                    <div class="file-selected" id="file-selected" style="display: none;">
+                        <p class="selected-file-name" id="selected-file-name"></p>
+                        <button type="button" class="btn-remove" id="remove-file-btn">&times;</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="custom-name" class="form-label">Custom Policy Name <span class="required">*</span></label>
+                <input type="text" id="custom-name" name="custom_name"
+                       class="form-input" placeholder="Enter policy name (15-100 characters)"
+                       minlength="15" maxlength="100" required>
+            </div>
+
+            <div class="form-group">
+                <label for="custom-description" class="form-label">Custom Policy Description <span class="required">*</span></label>
+                <textarea id="custom-description" name="custom_description"
+                          class="form-textarea" placeholder="Enter policy description (50-500 characters)"
+                          minlength="50" maxlength="500" rows="4" required></textarea>
+                <div class="char-count"><span id="desc-char-count">0</span>/500</div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>Start Review</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.delete-draft-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+            if (!confirm('Delete this saved draft?')) return;
+            try {
+                const response = await fetch(`/api/drafts/${encodeURIComponent(this.dataset.draftId)}`, {method: 'DELETE'});
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Delete failed');
+                this.closest('li')?.remove();
+                showToast('Draft deleted', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to delete draft', 'error');
+            }
+        });
+    });
+
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const prompt = dropZone.querySelector('.upload-prompt');
+    const selected = document.getElementById('file-selected');
+    const selectedName = document.getElementById('selected-file-name');
+    const submit = document.getElementById('submit-btn');
+    const name = document.getElementById('custom-name');
+    const description = document.getElementById('custom-description');
+    const count = document.getElementById('desc-char-count');
+    let selectedFile = null;
+
+    function validate() {
+        submit.disabled = !(selectedFile &&
+            name.value.trim().length >= 15 && name.value.trim().length <= 100 &&
+            description.value.trim().length >= 50 && description.value.trim().length <= 500);
+    }
+
+    function chooseFile(file) {
+        selectedFile = file;
+        selectedName.textContent = file.name;
+        prompt.style.display = 'none';
+        selected.style.display = 'flex';
+        validate();
+    }
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) chooseFile(fileInput.files[0]);
+    });
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', event => {
+        event.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', event => {
+        event.preventDefault();
+        dropZone.classList.remove('drag-over');
+        if (event.dataTransfer.files.length) chooseFile(event.dataTransfer.files[0]);
+    });
+    document.getElementById('remove-file-btn').addEventListener('click', event => {
+        event.stopPropagation();
+        selectedFile = null;
+        fileInput.value = '';
+        prompt.style.display = 'block';
+        selected.style.display = 'none';
+        validate();
+    });
+    name.addEventListener('input', validate);
+    description.addEventListener('input', () => {
+        count.textContent = description.value.length;
+        validate();
+    });
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (!selectedFile) return;
+
+        const data = new FormData();
+        data.append('file', selectedFile);
+        data.append('custom_name', name.value.trim());
+        data.append('custom_description', description.value.trim());
+        submit.disabled = true;
+        submit.textContent = 'Uploading...';
+        try {
+            const response = await fetch('/upload', {method: 'POST', body: data});
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'Upload failed');
+            window.location.href = result.redirect;
+        } catch (error) {
+            showToast(error.message || 'Upload failed', 'error');
+            submit.textContent = 'Start Review';
+            validate();
+        }
+    });
+});
+</script>
+{% endblock %}

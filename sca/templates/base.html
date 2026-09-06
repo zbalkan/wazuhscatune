@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}wazuhscatune{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <header class="app-header">
+        <div class="container">
+            <h1 class="app-title">wazuhscatune</h1>
+            <p class="app-subtitle">Wazuh Security Configuration Assessment Tool</p>
+        </div>
+    </header>
+
+    <main class="app-main">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <div class="container">
+            <p>Visit official Wazuh documentation for <a href="https://documentation.wazuh.com/current/user-manual/capabilities/sec-config-assessment/index.html" target="_blank" rel="noopener noreferrer">Security Configuration Assessment</a>.</p>
+            <p>wazuhscatune v{{ config.APP_VERSION }} &mdash; &copy; 2026 <a href="https://zaferbalkan.com" target="_blank" rel="noopener noreferrer">Zafer Balkan</a></p>
+            <p>The brand <a href="https://wazuh.com/" target="_blank" rel="noopener noreferrer">Wazuh</a> and related marks, emblems and images are registered trademarks of their respective owners.</p>
+            <p><a href="https://github.com/zbalkan/wazuhscatune" target="_blank" rel="noopener noreferrer">GITHUB</a></p>
+        </div>
+    </footer>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
