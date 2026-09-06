@@ -2,13 +2,14 @@
 
 `wazuhscatune` is a local application for tailoring a trusted Wazuh Security
 Configuration Assessment (SCA) baseline. It opens a browser-based review UI where
-each check is either accepted or recorded as an exception with a justification.
+each check is accepted, recorded as an exception, or marked not applicable.
 
 Review states:
 
 - **Unreviewed** — not yet explicitly reviewed.
 - **Accepted** — retained in the tailored policy.
-- **Exception** — justified and removed from the tailored policy.
+- **Exception** — justified and removed because the control applies but its risk is accepted.
+- **Not Applicable** — justified and removed because the control does not apply to the platform or role.
 
 ![Review Wazuh SCA checks](assets/review.png "Review Wazuh SCA checks")
 
@@ -51,7 +52,7 @@ If the browser does not open automatically, open that address manually.
 1. Upload a Wazuh SCA `.yml`, `.yaml`, or a ZIP previously exported by
    `wazuhscatune`.
 2. Name and describe the tailored policy.
-3. Review every check as accepted or as a justified exception.
+3. Review every check as accepted, a justified exception, or justified as not applicable.
 4. Review the final decisions.
 5. Export a ZIP containing:
    - `<policy>.yml` — tailored SCA policy;

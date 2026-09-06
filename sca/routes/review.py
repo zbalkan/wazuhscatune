@@ -41,9 +41,26 @@ def review_page() -> wResponse | str:
         checks = get_checks(guide)
         decisions = session.get('decisions', {})
         baseline_ids = {check['id'] for check in checks}
+        state_error = None
+        try:
+            normalized = normalize_decisions(decisions, baseline_ids)
+        except ValueError:
+            logger.warning("Discarding invalid stored review state", exc_info=True)
+            if not _save_draft({}):
+                raise RuntimeError("Unable to discard invalid stored review state")
+            decisions = {}
+            normalized = {}
+            session['decisions'] = {}
+            session.pop('record_generated_at', None)
+            session.modified = True
+            state_error = (
+                "Stored review state was invalid and has been discarded. "
+                "The baseline is unchanged; review it again from the beginning."
+            )
+
         decisions_client = {
             str(key): value.to_session()
-            for key, value in normalize_decisions(decisions, baseline_ids).items()
+            for key, value in normalized.items()
         }
         return render_template(
             'review.html',
@@ -51,6 +68,7 @@ def review_page() -> wResponse | str:
             checks=checks,
             decisions=decisions_client,
             stats=calculate_stats(guide, decisions),
+            state_error=state_error,
         )
     except Exception:
         logger.exception("Unable to load review page")
@@ -78,21 +96,27 @@ def save_decision() -> tuple[Response, Literal[400]] | tuple[Response, Literal[4
             return jsonify({'error': 'Field check_id must be an integer string'}), 400
 
         guide = Guide(_baseline_path())
-        if check_id not in {check.id for check in guide.sca.checks}:
+        baseline_ids = {check.id for check in guide.sca.checks}
+        if check_id not in baseline_ids:
             return jsonify({'error': 'Unknown check ID'}), 404
 
         try:
+            current = normalize_decisions(session.get('decisions', {}), baseline_ids)
             decision = ReviewDecision.create(
                 check_id, data.get('decision'), data.get('justification', ''))
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
 
-        decisions = dict(session.get('decisions', {}))
+        decisions = {
+            str(key): value.to_session()
+            for key, value in current.items()
+        }
         decisions[str(check_id)] = decision.to_session()
         if not _save_draft(decisions):
             return jsonify({'error': 'Unable to persist review state.'}), 500
 
         session['decisions'] = decisions
+        session.pop('record_generated_at', None)
         session.modified = True
         return jsonify({
             'success': True,

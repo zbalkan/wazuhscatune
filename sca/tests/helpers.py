@@ -49,7 +49,7 @@ def write_yaml(path, data):
         YAML().dump(data, stream)
 
 
-def app_with_session(tmp_path):
+def app_with_session(tmp_path, baseline_data=None):
     class TestConfig:
         TESTING = True
         SECRET_KEY = 'test'
@@ -64,7 +64,7 @@ def app_with_session(tmp_path):
 
     app = create_app(TestConfig)
     path = tmp_path / 'uploads' / 'base.yml'
-    write_yaml(path, baseline())
+    write_yaml(path, baseline_data if baseline_data is not None else baseline())
     client = app.test_client()
     with client.session_transaction() as sess:
         sess.update(

@@ -12,6 +12,10 @@
         </div>
     </div>
 
+    {% if state_error %}
+    <div class="review-state-error" role="alert">{{ state_error }}</div>
+    {% endif %}
+
     <div class="progress-indicator">
         <div class="progress-bar">
             <div class="progress-fill" id="progress-fill" style="width: {{ stats.review_completion }}%"></div>
@@ -19,6 +23,7 @@
         <p class="progress-text">
             <span id="reviewed-count">{{ stats.reviewed }}</span> of <span id="total-count">{{ checks|length }}</span> checks reviewed
             (<span id="excluded-count">{{ stats.exceptions }}</span> exceptions,
+            <span id="not-applicable-count">{{ stats.not_applicable }}</span> not applicable,
             <span id="unreviewed-count">{{ stats.unreviewed }}</span> unreviewed,
             <span id="effective-count">{{ stats.effective_included }}</span> effective checks)
         </p>
@@ -32,6 +37,7 @@
                 <div class="review-status-filters">
                     <label><input type="checkbox" name="status" value="accepted" checked> Accepted</label>
                     <label><input type="checkbox" name="status" value="exception" checked> Exceptions</label>
+                    <label><input type="checkbox" name="status" value="not_applicable" checked> Not Applicable</label>
                     <label><input type="checkbox" name="status" value="unreviewed" checked> Unreviewed</label>
                 </div>
                 <button class="btn btn-outline btn-small" id="clear-filters-btn" type="button">Clear Filters</button>
@@ -90,12 +96,16 @@
                     <h3>Decision</h3>
                     <div class="radio-group">
                         <label class="radio-option">
-                            <input type="radio" name="decision" value="include" checked>
+                            <input type="radio" name="decision" value="accepted" checked>
                             <span>Accept this check</span>
                         </label>
                         <label class="radio-option">
-                            <input type="radio" name="decision" value="exclude">
+                            <input type="radio" name="decision" value="exception">
                             <span>Record an exception</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="decision" value="not_applicable">
+                            <span>Mark as not applicable</span>
                         </label>
                     </div>
                     <div class="justification-area" id="justification-area" hidden>

@@ -24,7 +24,7 @@ class Check:
     def from_dict(obj: Any) -> 'Check':
         compliance = obj.get('compliance')
         return Check(
-            [dict(item) for item in compliance] if compliance else None,
+            [dict(item) for item in compliance] if compliance is not None else None,
             str(obj.get('condition')),
             str(obj['description']) if obj.get('description') else None,
             int(obj.get('id')),

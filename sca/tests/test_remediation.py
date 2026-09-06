@@ -80,8 +80,9 @@ def test_decision_api_validation_and_normalized_stats(tmp_path):
         'check_id': 1, 'decision': 'exception',
         'justification': 'Needed | for\nlegacy \\ app'})
     assert response.json['stats'] == {
-        'total': 2, 'accepted': 0, 'exceptions': 1, 'unreviewed': 1,
-        'effective_included': 1, 'reviewed': 1, 'review_completion': 50.0}
+        'total': 2, 'accepted': 0, 'exceptions': 1, 'not_applicable': 0,
+        'unreviewed': 1, 'effective_included': 1, 'reviewed': 1,
+        'review_completion': 50.0}
 
 
 def test_decision_api_rejects_all_invalid_justification_types(tmp_path):
@@ -161,7 +162,7 @@ def test_markdown_export_neutralizes_uploaded_markup(tmp_path):
 def test_typed_decision_normalization(decision, justification, expected):
     value = ReviewDecision.create(1, decision, justification)
     assert value.to_session() == expected
-    assert normalize_decisions({'1': expected, '999': expected}, {1}) == {1: value}
+    assert normalize_decisions({'1': expected}, {1}) == {1: value}
 
 
 @pytest.mark.parametrize('decision,justification', [

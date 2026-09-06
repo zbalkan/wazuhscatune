@@ -1,6 +1,7 @@
 """Export routes."""
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Literal
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, send_file, session, url_for
@@ -33,13 +34,13 @@ def approval_page() -> wResponse | str:
         decisions = session.get('decisions', {})
         baseline_ids = {check['id'] for check in checks}
         try:
-            normalized = normalize_decisions(decisions, baseline_ids, strict=True)
+            normalized = normalize_decisions(decisions, baseline_ids)
         except ValueError:
             return redirect(url_for('review.review_page'))
         if set(normalized) != baseline_ids:
             return redirect(url_for('review.review_page'))
 
-        excluded_checks = [
+        exceptions = [
             {
                 'id': check['id'],
                 'title': check['title'],
@@ -48,12 +49,22 @@ def approval_page() -> wResponse | str:
             for check in checks
             if normalized[check['id']].decision is DecisionType.EXCEPTION
         ]
+        not_applicable = [
+            {
+                'id': check['id'],
+                'title': check['title'],
+                'justification': normalized[check['id']].justification or '',
+            }
+            for check in checks
+            if normalized[check['id']].decision is DecisionType.NOT_APPLICABLE
+        ]
         return render_template(
             'approval.html',
             custom_name=session.get('custom_name'),
             custom_description=session.get('custom_description'),
             stats=calculate_stats(guide, decisions),
-            excluded_checks=excluded_checks,
+            exceptions=exceptions,
+            not_applicable=not_applicable,
         )
     except Exception:
         logger.exception("Unable to load approval page")
@@ -71,18 +82,18 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
         baseline_ids = {check.id for check in guide.sca.checks}
         try:
             normalized: dict[int, ReviewDecision] = normalize_decisions(
-                decisions, baseline_ids, strict=True)
+                decisions, baseline_ids)
         except ValueError:
             return jsonify({'error': 'Review state is invalid; review the affected checks again.'}), 400
 
         if set(normalized) != baseline_ids:
             return jsonify({'error': 'All checks must be reviewed before export.'}), 400
 
-        excluded_ids = {
+        removed_ids = {
             check_id for check_id, value in normalized.items()
-            if value.decision is DecisionType.EXCEPTION
+            if value.decision is not DecisionType.ACCEPTED
         }
-        if excluded_ids == baseline_ids:
+        if removed_ids == baseline_ids:
             return jsonify({'error': 'At least one check must remain included'}), 400
 
         custom_name = session.get('custom_name')
@@ -104,11 +115,16 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
             description=f"{custom_description} (Based on {guide.sca.policy.name})",
         )
         for check in guide.sca.checks:
-            if check.id in excluded_ids:
+            if check.id in removed_ids:
                 tailoring.decisions[check.id] = TailoringException(
                     justification=normalized[check.id].justification or '',
                     exception_check=check,
+                    decision=normalized[check.id].decision,
                 )
+
+        generated_at = session.get('record_generated_at')
+        if not isinstance(generated_at, str) or not generated_at:
+            generated_at = datetime.now(timezone.utc).isoformat()
 
         previous_path = None
         previous = session.get('export_zip_path')
@@ -120,7 +136,13 @@ def export_files() -> tuple[Response, Literal[400]] | Response | tuple[Response,
                 pass
 
         zip_path = export_policy(
-            guide, tailoring, sanitized_name, current_app.config['EXPORT_FOLDER'])
+            guide,
+            tailoring,
+            sanitized_name,
+            current_app.config['EXPORT_FOLDER'],
+            generated_at,
+        )
+        session['record_generated_at'] = generated_at
         session['export_zip_path'] = zip_path
         session['export_zip_filename'] = f'{sanitized_name}_export.zip'
         session.modified = True

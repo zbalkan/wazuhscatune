@@ -1,4 +1,4 @@
-"""Typed reviewer decisions and strict session serialization."""
+"""Typed reviewer decisions and session serialization."""
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -23,6 +23,7 @@ def _is_meaningful(text: str) -> bool:
 class DecisionType(str, Enum):
     ACCEPTED = "accepted"
     EXCEPTION = "exception"
+    NOT_APPLICABLE = "not_applicable"
 
 
 @dataclass(frozen=True)
@@ -39,19 +40,23 @@ class ReviewDecision:
         try:
             kind = DecisionType(decision)
         except (TypeError, ValueError) as error:
-            raise ValueError("Field decision must be 'accepted' or 'exception'") from error
+            raise ValueError(
+                "Field decision must be 'accepted', 'exception', or 'not_applicable'"
+            ) from error
         if not isinstance(justification, str):
             raise ValueError("Field justification must be a string")
         text = justification.strip()
-        if kind is DecisionType.EXCEPTION:
+        if kind is not DecisionType.ACCEPTED:
             if len(text) < 10:
-                raise ValueError("Justification must be at least 10 characters for an exception")
+                raise ValueError(
+                    "Justification must be at least 10 characters for a removing decision"
+                )
             if not _is_meaningful(text):
                 raise ValueError(
                     "Justification must contain meaningful text, not repeated characters")
         if len(text) > 1000:
             raise ValueError("Justification must not exceed 1000 characters")
-        return cls(check_id, kind, text if kind is DecisionType.EXCEPTION else None)
+        return cls(check_id, kind, text if kind is not DecisionType.ACCEPTED else None)
 
     def to_session(self) -> dict[str, str]:
         value = {"decision": self.decision.value}
@@ -60,12 +65,10 @@ class ReviewDecision:
         return value
 
 
-def normalize_decisions(raw: object, baseline_ids: set[int], *, strict: bool = False
-                        ) -> dict[int, ReviewDecision]:
+def normalize_decisions(raw: object, baseline_ids: set[int]) -> dict[int, ReviewDecision]:
     if not isinstance(raw, Mapping):
-        if strict:
-            raise ValueError("Review state must be a mapping")
-        return {}
+        raise ValueError("Review state must be a mapping")
+
     normalized: dict[int, ReviewDecision] = {}
     for raw_id, value in raw.items():
         if type(raw_id) is int:
@@ -73,23 +76,16 @@ def normalize_decisions(raw: object, baseline_ids: set[int], *, strict: bool = F
         elif isinstance(raw_id, str) and raw_id.lstrip('-').isdigit():
             check_id = int(raw_id)
         else:
-            if strict:
-                raise ValueError(f"Invalid decision check ID: {raw_id!r}")
-            continue
+            raise ValueError(f"Invalid decision check ID: {raw_id!r}")
+
         if check_id not in baseline_ids:
-            if strict:
-                raise ValueError(f"Unknown decision check ID: {check_id}")
-            continue
-        if strict and check_id in normalized:
+            raise ValueError(f"Unknown decision check ID: {check_id}")
+        if check_id in normalized:
             raise ValueError(f"Duplicate review state for check {check_id}")
         if not isinstance(value, Mapping):
-            if strict:
-                raise ValueError(f"Invalid review state for check {check_id}")
-            continue
-        try:
-            normalized[check_id] = ReviewDecision.create(
-                check_id, value.get("decision"), value.get("justification", ""))
-        except ValueError:
-            if strict:
-                raise
+            raise ValueError(f"Invalid review state for check {check_id}")
+
+        normalized[check_id] = ReviewDecision.create(
+            check_id, value.get("decision"), value.get("justification", ""))
+
     return normalized

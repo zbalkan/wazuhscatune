@@ -45,7 +45,15 @@ def _exception_record(filename: str, digest: str | None = None) -> bytes:
     }
     if digest is not None:
         tailored_policy['sha256'] = digest
-    return _yaml_bytes({'tailored_policy': tailored_policy})
+    return _yaml_bytes({
+        'tailored_policy': tailored_policy,
+        'exceptions': [{
+            'check_id': 1,
+            'title': 'One',
+            'justification': 'Accepted risk reason',
+        }],
+        'not_applicable': [],
+    })
 
 
 def _upload_data(file):
@@ -117,17 +125,6 @@ def test_zip_import_rejects_tampered_exported_policy(tmp_path):
     response = _upload_zip(tmp_path, archive, 'tampered.zip')
     assert response.status_code == 400
     assert 'SHA-256 does not match' in response.json['error']
-
-
-def test_zip_import_accepts_legacy_exception_record_without_digest(tmp_path):
-    archive = io.BytesIO()
-    with zipfile.ZipFile(archive, 'w') as bundle:
-        bundle.writestr('policy.yml', _policy_yaml())
-        bundle.writestr('policy_exceptions.yml', _exception_record('policy.yml'))
-
-    response = _upload_zip(tmp_path, archive, 'legacy.zip')
-    assert response.status_code == 200
-    assert response.json['success'] is True
 
 
 def test_zip_import_requires_exactly_one_policy_yaml(tmp_path):

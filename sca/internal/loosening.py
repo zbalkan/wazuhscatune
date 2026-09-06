@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from sca.internal.review import DecisionType
 from sca.internal.sca import Check
 
 
@@ -7,6 +8,7 @@ from sca.internal.sca import Check
 class TailoringException:
     justification: str
     exception_check: Check
+    decision: DecisionType = DecisionType.EXCEPTION
 
 
 @dataclass

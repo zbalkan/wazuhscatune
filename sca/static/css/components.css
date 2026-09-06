@@ -33,8 +33,17 @@ body.review-layout .app-main > .container {
 }
 
 .review-page .review-header,
-.review-page .progress-indicator {
+.review-page .progress-indicator,
+.review-state-error {
     flex: 0 0 auto;
+}
+
+.review-state-error {
+    border: 1px solid var(--color-danger);
+    border-radius: var(--border-radius);
+    color: var(--color-danger);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
 }
 
 .review-page .progress-indicator {
@@ -178,6 +187,11 @@ body.review-layout .app-main > .container {
 .card-status[data-status="exception"] {
     background-color: #fee2e2;
     color: #991b1b;
+}
+
+.card-status[data-status="not_applicable"] {
+    background-color: #fef3c7;
+    color: #92400e;
 }
 
 .card-status[data-status="unreviewed"] {
