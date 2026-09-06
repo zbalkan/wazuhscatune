@@ -2,6 +2,10 @@
 
 Notable user-facing changes are recorded here. Routine refactoring and test-only changes do not need an entry.
 
+## 0.1.1
+
+- Added ZIP digest validation during upload.
+
 ## 0.1.0
 
 First public alpha release.
