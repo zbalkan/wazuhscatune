@@ -86,7 +86,7 @@ Release history is kept in [`CHANGELOG.md`][def1].
 
 ## License
 
-GNU General Public License v3 or later. See [`LICENSE`][def2].
+GNU General Public License version 2 only. See [`LICENSE`][def2].
 
 [def1]: https://github.com/zbalkan/wazuhscatune/blob/main/CHANGELOG.md
 [def2]: https://github.com/zbalkan/wazuhscatune/blob/main/LICENSE
