@@ -2,6 +2,10 @@
 
 Notable user-facing changes are recorded here. Routine refactoring and test-only changes do not need an entry.
 
+## 0.2.2
+
+- Updated license
+
 ## 0.2.1
 
 - Added deterministic export regression tests
